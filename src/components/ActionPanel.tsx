@@ -125,7 +125,7 @@ const ActionPanel: React.FC = () => {
 
             <TouchableOpacity
               style={styles.controlButton}
-              onPress={resetGame}
+              onPress={() => resetGame()}
               activeOpacity={0.7}
             >
               <Text style={styles.controlIcon}>🔄</Text>

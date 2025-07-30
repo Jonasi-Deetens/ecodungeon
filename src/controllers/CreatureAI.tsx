@@ -4,7 +4,8 @@ export interface CreatureAI {
   update(
     deltaTime: number,
     position: Position,
-    nearbyEntities: any[]
+    nearbyEntities: any[],
+    roomBounds?: { minX: number; maxX: number; minY: number; maxY: number }
   ): Position;
   shouldReproduce(
     health: number,
@@ -21,7 +22,8 @@ export class PlantAI implements CreatureAI {
   update(
     deltaTime: number,
     position: Position,
-    nearbyEntities: any[]
+    nearbyEntities: any[],
+    roomBounds?: { minX: number; maxX: number; minY: number; maxY: number }
   ): Position {
     // Plants don't move, they just grow in place
     return position;
@@ -58,7 +60,8 @@ export class HerbivoreAI implements CreatureAI {
   update(
     deltaTime: number,
     position: Position,
-    nearbyEntities: any[]
+    nearbyEntities: any[],
+    roomBounds?: { minX: number; maxX: number; minY: number; maxY: number }
   ): Position {
     this.wanderTimer += deltaTime;
     this.fleeTimer += deltaTime;
@@ -101,20 +104,20 @@ export class HerbivoreAI implements CreatureAI {
       this.isFleeing = false;
     }
 
-    // Check if near room boundaries and change direction if needed
-    const roomBounds = { minX: 0, maxX: 3000, minY: 0, maxY: 1500 }; // Default room bounds
+    // Use provided room bounds or default to a reasonable area
+    const bounds = roomBounds || { minX: 0, maxX: 4000, minY: 0, maxY: 2000 };
     const nearBoundary =
-      position.x < roomBounds.minX + 100 ||
-      position.x > roomBounds.maxX - 100 ||
-      position.y < roomBounds.minY + 100 ||
-      position.y > roomBounds.maxY - 100;
+      position.x < bounds.minX + 100 ||
+      position.x > bounds.maxX - 100 ||
+      position.y < bounds.minY + 100 ||
+      position.y > bounds.maxY - 100;
 
     // Change wander direction periodically or when near boundary
     if (this.wanderTimer >= this.wanderInterval || nearBoundary) {
       // If near boundary, move away from it
       if (nearBoundary) {
-        const centerX = (roomBounds.minX + roomBounds.maxX) / 2;
-        const centerY = (roomBounds.minY + roomBounds.maxY) / 2;
+        const centerX = (bounds.minX + bounds.maxX) / 2;
+        const centerY = (bounds.minY + bounds.maxY) / 2;
         this.wanderDirection = {
           x: centerX - position.x,
           y: centerY - position.y,
@@ -220,7 +223,8 @@ export class CarnivoreAI implements CreatureAI {
   update(
     deltaTime: number,
     position: Position,
-    nearbyEntities: any[]
+    nearbyEntities: any[],
+    roomBounds?: { minX: number; maxX: number; minY: number; maxY: number }
   ): Position {
     this.wanderTimer += deltaTime;
     this.packTimer += deltaTime;
@@ -272,20 +276,20 @@ export class CarnivoreAI implements CreatureAI {
       }
     }
 
-    // Check if near room boundaries and change direction if needed
-    const roomBounds = { minX: 0, maxX: 3000, minY: 0, maxY: 1500 }; // Default room bounds
+    // Use provided room bounds or default to a reasonable area
+    const bounds = roomBounds || { minX: 0, maxX: 4000, minY: 0, maxY: 2000 };
     const nearBoundary =
-      position.x < roomBounds.minX + 100 ||
-      position.x > roomBounds.maxX - 100 ||
-      position.y < roomBounds.minY + 100 ||
-      position.y > roomBounds.maxY - 100;
+      position.x < bounds.minX + 100 ||
+      position.x > bounds.maxX - 100 ||
+      position.y < bounds.minY + 100 ||
+      position.y > bounds.maxY - 100;
 
     // Change wander direction periodically or when near boundary
     if (this.wanderTimer >= this.wanderInterval || nearBoundary) {
       // If near boundary, move away from it
       if (nearBoundary) {
-        const centerX = (roomBounds.minX + roomBounds.maxX) / 2;
-        const centerY = (roomBounds.minY + roomBounds.maxY) / 2;
+        const centerX = (bounds.minX + bounds.maxX) / 2;
+        const centerY = (bounds.minY + bounds.maxY) / 2;
         this.wanderDirection = {
           x: centerX - position.x,
           y: centerY - position.y,

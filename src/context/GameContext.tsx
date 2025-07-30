@@ -502,17 +502,26 @@ export function GameProvider({ children }: GameProviderProps) {
               entity.position.distanceTo(e.position) <= 200 // Only consider entities within 200px
           );
 
-          // Update position using AI
-          const newPosition = ai.update(
-            deltaTime,
-            entity.position,
-            nearbyEntities
-          );
-
-          // Keep entity within its own room bounds
+          // Get room bounds for this entity
           const entityRoom = state.rooms.find(
             (room) => room.id === entity.roomId
           );
+          const roomBounds = entityRoom ? {
+            minX: entityRoom.x + 50,
+            maxX: entityRoom.x + entityRoom.width - 50,
+            minY: entityRoom.y + 50,
+            maxY: entityRoom.y + entityRoom.height - 50,
+          } : undefined;
+
+          // Update position using AI with room bounds
+          const newPosition = ai.update(
+            deltaTime,
+            entity.position,
+            nearbyEntities,
+            roomBounds
+          );
+
+          // Keep entity within its own room bounds
           if (entityRoom) {
             newPosition.x = Math.max(
               entityRoom.x + 50,
@@ -563,9 +572,26 @@ export function GameProvider({ children }: GameProviderProps) {
     (newPosition: Position) => {
       if (!state.player) return;
 
-      // Ensure position is within bounds
-      newPosition.x = Math.max(50, Math.min(2950, newPosition.x));
-      newPosition.y = Math.max(50, Math.min(2950, newPosition.y));
+      // Get current room bounds for player movement
+      const currentRoom = state.rooms.find(
+        (room) => room.id === state.currentRoomId
+      );
+      
+      if (currentRoom) {
+        // Ensure position is within current room bounds
+        newPosition.x = Math.max(
+          currentRoom.x + 50,
+          Math.min(currentRoom.x + currentRoom.width - 50, newPosition.x)
+        );
+        newPosition.y = Math.max(
+          currentRoom.y + 50,
+          Math.min(currentRoom.y + currentRoom.height - 50, newPosition.y)
+        );
+      } else {
+        // Fallback to world bounds if no room found
+        newPosition.x = Math.max(50, Math.min(2950, newPosition.x));
+        newPosition.y = Math.max(50, Math.min(2950, newPosition.y));
+      }
 
       state.player.move(newPosition);
 
@@ -574,7 +600,7 @@ export function GameProvider({ children }: GameProviderProps) {
         payload: { player: state.player },
       });
     },
-    [state.player]
+    [state.player, state.rooms, state.currentRoomId]
   );
 
   const performAction = useCallback(

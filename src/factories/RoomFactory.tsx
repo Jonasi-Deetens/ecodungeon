@@ -155,22 +155,26 @@ export class RoomFactory {
       throw new Error(`Room template '${templateId}' not found`);
     }
 
+    // Use the actual room dimensions from DungeonGenerator
+    const actualRoomWidth = 4000;  // DungeonGenerator.ROOM_WIDTH
+    const actualRoomHeight = 2000; // DungeonGenerator.ROOM_HEIGHT
+
     // Ensure room fits within world bounds
-    const maxX = worldWidth - template.width - 1000;
-    const maxY = worldHeight - template.height - 1000;
+    const maxX = worldWidth - actualRoomWidth - 1000;
+    const maxY = worldHeight - actualRoomHeight - 1000;
     const roomX = Math.max(1000, Math.min(maxX, worldX));
     const roomY = Math.max(1000, Math.min(maxY, worldY));
 
     const entities: any[] = [];
 
-    // Generate plants
+    // Generate plants - use actual room dimensions for positioning
     for (let i = 0; i < template.plantCount; i++) {
       const plantType =
         template.plantTypes[
           Math.floor(Math.random() * template.plantTypes.length)
         ];
-      const x = roomX + 100 + Math.random() * (template.width - 200);
-      const y = roomY + 100 + Math.random() * (template.height - 200);
+      const x = roomX + 100 + Math.random() * (actualRoomWidth - 200);
+      const y = roomY + 100 + Math.random() * (actualRoomHeight - 200);
       const plant = new Plant(
         `plant_${templateId}_${i}`,
         new Position(x, y),
@@ -180,14 +184,14 @@ export class RoomFactory {
       entities.push(plant);
     }
 
-    // Generate herbivores
+    // Generate herbivores - use actual room dimensions for positioning
     for (let i = 0; i < template.herbivoreCount; i++) {
       const herbivoreType =
         template.herbivoreTypes[
           Math.floor(Math.random() * template.herbivoreTypes.length)
         ];
-      const x = roomX + 100 + Math.random() * (template.width - 200);
-      const y = roomY + 100 + Math.random() * (template.height - 200);
+      const x = roomX + 100 + Math.random() * (actualRoomWidth - 200);
+      const y = roomY + 100 + Math.random() * (actualRoomHeight - 200);
       const herbivore = new Herbivore(
         `herbivore_${templateId}_${i}`,
         new Position(x, y),
@@ -197,14 +201,14 @@ export class RoomFactory {
       entities.push(herbivore);
     }
 
-    // Generate carnivores
+    // Generate carnivores - use actual room dimensions for positioning
     for (let i = 0; i < template.carnivoreCount; i++) {
       const carnivoreType =
         template.carnivoreTypes[
           Math.floor(Math.random() * template.carnivoreTypes.length)
         ];
-      const x = roomX + 100 + Math.random() * (template.width - 200);
-      const y = roomY + 100 + Math.random() * (template.height - 200);
+      const x = roomX + 100 + Math.random() * (actualRoomWidth - 200);
+      const y = roomY + 100 + Math.random() * (actualRoomHeight - 200);
       const carnivore = new Carnivore(
         `carnivore_${templateId}_${i}`,
         new Position(x, y),
@@ -218,8 +222,8 @@ export class RoomFactory {
       id: roomId || `${templateId}_${Date.now()}`,
       x: roomX,
       y: roomY,
-      width: template.width,
-      height: template.height,
+      width: actualRoomWidth,  // Use actual room dimensions
+      height: actualRoomHeight, // Use actual room dimensions
       entities,
       template,
       biome: template.biome,

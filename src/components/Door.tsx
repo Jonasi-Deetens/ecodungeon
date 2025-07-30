@@ -1,11 +1,11 @@
 import React from "react";
 import { View, StyleSheet, TouchableOpacity, Text } from "react-native";
-import { Door as DoorType } from "../types/gameTypes";
+import { Teleporter } from "../types/gameTypes";
 
 interface DoorProps {
-  door: DoorType;
+  door: Teleporter;
   cameraPosition: { x: number; y: number };
-  onDoorInteract: (door: DoorType) => void;
+  onDoorInteract: (door: Teleporter) => void;
   playerPosition: { x: number; y: number };
 }
 
@@ -24,17 +24,11 @@ const Door: React.FC<DoorProps> = ({
   };
 
   const getDoorIcon = () => {
-    if (door.isOpen) {
-      return "🚪"; // Open door
-    }
-    return "🚪"; // Closed door
+    return "🚪"; // Door icon
   };
 
   const getDoorColor = () => {
-    if (door.isOpen) {
-      return "#8B4513"; // Brown when open
-    }
-    return "#654321"; // Darker brown when closed
+    return "#8B4513"; // Brown color
   };
 
   return (
@@ -57,7 +51,7 @@ const Door: React.FC<DoorProps> = ({
       <Text style={styles.doorIcon}>{getDoorIcon()}</Text>
       {isPlayerNearby() && (
         <Text style={styles.interactionText}>
-          {door.isOpen ? "Close" : "Open"}
+          Enter
         </Text>
       )}
     </TouchableOpacity>

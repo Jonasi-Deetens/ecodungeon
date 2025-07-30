@@ -13,6 +13,9 @@ interface RoomConfig {
   playerPosition: Position;
   screenWidth?: number;
   screenHeight?: number;
+  teleporterStates?: {[key: string]: boolean};
+  onTeleporterActivation?: (teleporterId: string, activated: boolean) => void;
+  linkedTeleporters?: {[key: string]: any};
 }
 
 interface RoomProps {
@@ -151,45 +154,59 @@ const Room: React.FC<RoomProps> = ({ config }) => {
 
       {/* Room Teleporters */}
       {config.room.teleporters.map((teleporter) => {
-        // Find the linked teleporter in the connected room
-        const linkedTeleporter = config.room.teleporters.find(
-          (t) =>
-            t.connectedRoomId === teleporter.connectedRoomId &&
-            t.id !== teleporter.id
-        );
+        // Get the linked teleporter from the passed data
+        const linkedTeleporter = config.linkedTeleporters?.[teleporter.id];
+
+        // Convert teleporter world coordinates to room-relative coordinates
+        const roomRelativeTeleporter = {
+          ...teleporter,
+          x: teleporter.x - config.room.x,
+          y: teleporter.y - config.room.y,
+        };
 
         return (
           <TeleporterComponent
             key={teleporter.id}
-            teleporter={teleporter}
+            teleporter={roomRelativeTeleporter}
             cameraPosition={config.cameraPosition}
             onTeleport={config.onTeleport || (() => {})}
             playerPosition={config.playerPosition}
             linkedTeleporter={linkedTeleporter || undefined}
+            isActivated={config.teleporterStates?.[teleporter.id] || false}
+            onActivationChange={config.onTeleporterActivation || (() => {})}
+            roomPosition={{ x: config.room.x, y: config.room.y }}
           />
         );
       })}
 
       {/* Room Entities */}
-      {config.room.entities.map((entity: any) => (
-        <Creature
-          key={entity.id}
-          id={entity.id}
-          type={entity.type}
-          position={entity.position}
-          cameraPosition={config.cameraPosition}
-          health={entity.health}
-          maxHealth={entity.maxHealth}
-          energy={entity.energy}
-          maxEnergy={entity.maxEnergy}
-          species={entity.species || "moss"}
-          hunger={entity.hunger}
-          maxHunger={entity.maxHunger}
-          showRanges={config.showRanges || false}
-          screenWidth={config.screenWidth || 400}
-          screenHeight={config.screenHeight || 600}
-        />
-      ))}
+      {config.room.entities.map((entity: any) => {
+        // Convert entity world coordinates to room-relative coordinates
+        const roomRelativePosition = new Position(
+          entity.position.x - config.room.x,
+          entity.position.y - config.room.y
+        );
+
+        return (
+          <Creature
+            key={entity.id}
+            id={entity.id}
+            type={entity.type}
+            position={roomRelativePosition}
+            cameraPosition={config.cameraPosition}
+            health={entity.health}
+            maxHealth={entity.maxHealth}
+            energy={entity.energy}
+            maxEnergy={entity.maxEnergy}
+            species={entity.species || "moss"}
+            hunger={entity.hunger}
+            maxHunger={entity.maxHunger}
+            showRanges={config.showRanges || false}
+            screenWidth={config.screenWidth || 400}
+            screenHeight={config.screenHeight || 600}
+          />
+        );
+      })}
     </View>
   );
 };

@@ -203,7 +203,7 @@ export class DungeonGenerator {
         teleporters.push({
           id: `teleporter_${dungeonRoom.id}_north`,
           x: dungeonRoom.x + dungeonRoom.width / 2 - 50,
-          y: dungeonRoom.y + 50, // Teleporter at the top edge of the room
+          y: dungeonRoom.y + 100, // Teleporter 100px from the top edge of the room
           width: 100,
           height: 100,
           connectedRoomId: dungeonRoom.connections.north,
@@ -215,7 +215,7 @@ export class DungeonGenerator {
         teleporters.push({
           id: `teleporter_${dungeonRoom.id}_south`,
           x: dungeonRoom.x + dungeonRoom.width / 2 - 50,
-          y: dungeonRoom.y + dungeonRoom.height - 150, // Teleporter at the bottom edge of the room
+          y: dungeonRoom.y + dungeonRoom.height - 200, // Teleporter 100px from the bottom edge of the room
           width: 100,
           height: 100,
           connectedRoomId: dungeonRoom.connections.south,
@@ -226,7 +226,7 @@ export class DungeonGenerator {
       if (dungeonRoom.connections.east) {
         teleporters.push({
           id: `teleporter_${dungeonRoom.id}_east`,
-          x: dungeonRoom.x + dungeonRoom.width - 150, // Teleporter at the right edge of the room
+          x: dungeonRoom.x + dungeonRoom.width - 200, // Teleporter 100px from the right edge of the room
           y: dungeonRoom.y + dungeonRoom.height / 2 - 50,
           width: 100,
           height: 100,
@@ -238,7 +238,7 @@ export class DungeonGenerator {
       if (dungeonRoom.connections.west) {
         teleporters.push({
           id: `teleporter_${dungeonRoom.id}_west`,
-          x: dungeonRoom.x + 50, // Teleporter at the left edge of the room
+          x: dungeonRoom.x + 100, // Teleporter 100px from the left edge of the room
           y: dungeonRoom.y + dungeonRoom.height / 2 - 50,
           width: 100,
           height: 100,

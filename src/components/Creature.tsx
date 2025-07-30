@@ -128,8 +128,8 @@ const Creature: React.FC<CreatureProps> = ({
   };
 
   const size = getCreatureSize(type, species);
-  const screenX = position.x - cameraPosition.x - size / 2;
-  const screenY = position.y - cameraPosition.y - size / 2;
+  const screenX = position.x - size / 2;
+  const screenY = position.y - size / 2;
 
   // Only render if visible on screen (using actual screen bounds)
   const margin = 2000; // Much larger margin to prevent entities from "teleporting" into view
