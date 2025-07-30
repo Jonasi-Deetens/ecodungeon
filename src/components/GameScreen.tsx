@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -10,6 +10,9 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useGame } from "../context/GameContext";
 import { Position } from "../types/gameTypes";
 import Joystick from "./Joystick";
+import Player from "./Player";
+import Creature from "./Creature";
+import { usePlayerController } from "../controllers/PlayerController";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -30,128 +33,93 @@ const GameScreen: React.FC<GameScreenProps> = ({
   onBackToMenu,
 }) => {
   const game = useGame();
-  const [playerPosition, setPlayerPosition] = useState({
-    x: WORLD_WIDTH / 2,
-    y: WORLD_HEIGHT / 2,
+  const [playerPosition, setPlayerPosition] = useState(
+    new Position(WORLD_WIDTH / 2, WORLD_HEIGHT / 2)
+  );
+  const [cameraPosition, setCameraPosition] = useState(new Position(0, 0));
+
+  // Update camera to follow player
+  const updateCameraPosition = useCallback(
+    (pos: Position) => {
+      const newCameraX = pos.x - screenWidth / 2;
+      const newCameraY = pos.y - screenHeight / 2;
+      setCameraPosition(
+        new Position(
+          Math.max(0, Math.min(newCameraX, WORLD_WIDTH - screenWidth)),
+          Math.max(0, Math.min(newCameraY, WORLD_HEIGHT - screenHeight))
+        )
+      );
+    },
+    [screenWidth, screenHeight]
+  );
+
+  // Memoized position change handler
+  const handlePositionChange = useCallback(
+    (newPosition: Position) => {
+      setPlayerPosition(newPosition);
+      updateCameraPosition(newPosition);
+      // Update game context player position without dispatching action
+      if (game.player) {
+        game.player.position = newPosition;
+      }
+    },
+    [updateCameraPosition, game.player]
+  );
+
+  // Memoized action handler
+  const handleAction = useCallback(
+    (action: string) => {
+      game.performAction(action as any);
+    },
+    [game]
+  );
+
+  // Player controller
+  const playerController = usePlayerController({
+    playerPosition,
+    onPositionChange: handlePositionChange,
+    onAction: handleAction,
+    worldBounds: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
+    movementSpeed: MOVEMENT_SPEED,
   });
-  const [cameraPosition, setCameraPosition] = useState({ x: 0, y: 0 });
-  const [movementDirection, setMovementDirection] = useState({ x: 0, y: 0 });
-  const animationFrameRef = useRef<number | null>(null);
 
   // Initialize player position when game starts
   useEffect(() => {
     if (game.player) {
-      const newPos = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 };
+      const newPos = new Position(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
       setPlayerPosition(newPos);
       updateCameraPosition(newPos);
     }
   }, [game.player]);
 
-  // Update camera to follow player
-  const updateCameraPosition = (pos: { x: number; y: number }) => {
-    const newCameraX = pos.x - screenWidth / 2;
-    const newCameraY = pos.y - screenHeight / 2;
-    setCameraPosition({
-      x: Math.max(0, Math.min(newCameraX, WORLD_WIDTH - screenWidth)),
-      y: Math.max(0, Math.min(newCameraY, WORLD_HEIGHT - screenHeight)),
-    });
-  };
-
-  // Handle player movement
-  const movePlayer = (direction: { x: number; y: number }) => {
-    if (!game.player) return;
-
-    const newX = playerPosition.x + direction.x * MOVEMENT_SPEED;
-    const newY = playerPosition.y + direction.y * MOVEMENT_SPEED;
-
-    // Keep player within world bounds
-    const boundedX = Math.max(50, Math.min(newX, WORLD_WIDTH - 50));
-    const boundedY = Math.max(50, Math.min(newY, WORLD_HEIGHT - 50));
-
-    const newPosition = { x: boundedX, y: boundedY };
-    setPlayerPosition(newPosition);
-    updateCameraPosition(newPosition);
-
-    // Update game context
-    game.movePlayer(new Position(boundedX, boundedY));
-  };
-
-  // Continuous movement loop
+  // Initialize game with selected character
   useEffect(() => {
-    if (movementDirection.x !== 0 || movementDirection.y !== 0) {
-      const animate = () => {
-        movePlayer(movementDirection);
-        animationFrameRef.current = requestAnimationFrame(animate);
-      };
-      animate();
-    } else if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
+    if (selectedCharacter) {
+      game.resetGame(selectedCharacter);
     }
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-    };
-  }, [movementDirection]);
+  }, [selectedCharacter, game.resetGame]);
 
   // Render entities in the world
   const renderEntities = () => {
-    return game.entities.map((entity) => {
-      const screenX = entity.position.x - cameraPosition.x;
-      const screenY = entity.position.y - cameraPosition.y;
-
-      // Only render entities visible on screen
-      if (
-        screenX < -50 ||
-        screenX > screenWidth + 50 ||
-        screenY < -50 ||
-        screenY > screenHeight + 50
-      ) {
-        return null;
-      }
-
-      let entityIcon = "❓";
-      let entityColor = "#94a3b8";
-
-      switch (entity.type) {
-        case "plant":
-          entityIcon = "🌱";
-          entityColor = "#4ade80";
-          break;
-        case "herbivore":
-          entityIcon = "🐀";
-          entityColor = "#fbbf24";
-          break;
-        case "carnivore":
-          entityIcon = "🕷️";
-          entityColor = "#ef4444";
-          break;
-      }
-
-      return (
-        <View
-          key={entity.id}
-          style={[
-            styles.entity,
-            {
-              left: screenX - 15,
-              top: screenY - 15,
-              backgroundColor: entityColor,
-            },
-          ]}
-        >
-          <Text style={styles.entityIcon}>{entityIcon}</Text>
-        </View>
-      );
-    });
+    return game.entities.map((entity) => (
+      <Creature
+        key={entity.id}
+        id={entity.id}
+        type={entity.type}
+        position={entity.position}
+        cameraPosition={cameraPosition}
+        health={entity.health}
+        maxHealth={entity.maxHealth}
+        energy={entity.energy}
+        maxEnergy={entity.maxEnergy}
+        species={(entity as any).species || "moss"}
+      />
+    ));
   };
 
   // Handle joystick movement
   const handleJoystickMove = (direction: { x: number; y: number }) => {
-    setMovementDirection(direction);
+    playerController.handleJoystickMove(direction);
   };
 
   return (
@@ -170,17 +138,17 @@ const GameScreen: React.FC<GameScreenProps> = ({
         {renderEntities()}
 
         {/* Player */}
-        <View
-          style={[
-            styles.player,
-            {
-              left: playerPosition.x - cameraPosition.x - 20,
-              top: playerPosition.y - cameraPosition.y - 20,
-            },
-          ]}
-        >
-          <Text style={styles.playerIcon}>🧙</Text>
-        </View>
+        {game.player && (
+          <Player
+            position={playerPosition}
+            cameraPosition={cameraPosition}
+            characterClass={game.player.characterClass}
+            health={game.player.health}
+            maxHealth={game.player.maxHealth}
+            energy={game.player.energy}
+            maxEnergy={game.player.maxEnergy}
+          />
+        )}
       </View>
 
       {/* UI Overlay */}
@@ -234,6 +202,18 @@ const GameScreen: React.FC<GameScreenProps> = ({
           >
             <Text style={styles.actionButtonIcon}>✨</Text>
             <Text style={styles.actionButtonText}>Restore</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => {
+              if (game.player) {
+                game.player.heal();
+              }
+            }}
+          >
+            <Text style={styles.actionButtonIcon}>💚</Text>
+            <Text style={styles.actionButtonText}>Heal</Text>
           </TouchableOpacity>
         </View>
 

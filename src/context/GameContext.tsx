@@ -234,7 +234,7 @@ interface GameContextType extends GameState {
   ) => void;
   selectEntity: (entity: IEntity | null) => void;
   togglePause: () => void;
-  resetGame: () => void;
+  resetGame: (characterClass?: string) => void;
 }
 
 // Create context
@@ -249,14 +249,18 @@ export function GameProvider({ children }: GameProviderProps) {
   const [state, dispatch] = useReducer(gameReducer, initialState);
 
   // Initialize the game world
-  const initializeGame = useCallback(() => {
-    const player = new Player("player_1", new Position(1500, 1500));
+  const initializeGame = useCallback((characterClass: string = "wanderer") => {
+    const player = new Player(
+      "player_1",
+      new Position(1500, 1500),
+      characterClass
+    );
 
     // Create initial ecosystem
     const entities: IEntity[] = [];
 
     // Add plants scattered across the world
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 20; i++) {
       const x = Math.random() * 3000;
       const y = Math.random() * 3000;
       const plant = new Plant(`plant_${i}`, new Position(x, y), "moss");
@@ -264,7 +268,7 @@ export function GameProvider({ children }: GameProviderProps) {
     }
 
     // Add herbivores scattered across the world
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 8; i++) {
       const x = Math.random() * 3000;
       const y = Math.random() * 3000;
       const herbivore = new Herbivore(
@@ -276,7 +280,7 @@ export function GameProvider({ children }: GameProviderProps) {
     }
 
     // Add carnivores scattered across the world
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 3; i++) {
       const x = Math.random() * 3000;
       const y = Math.random() * 3000;
       const carnivore = new Carnivore(
@@ -515,6 +519,8 @@ export function GameProvider({ children }: GameProviderProps) {
               (e) => e.id !== targetEntity.id
             );
             message = `Gathered ${targetEntity.type}`;
+          } else {
+            message = "No target to gather nearby";
           }
           break;
 
@@ -525,6 +531,8 @@ export function GameProvider({ children }: GameProviderProps) {
           ) {
             state.player.attack(targetEntity);
             message = `Attacked ${targetEntity.type}`;
+          } else {
+            message = "No target to attack nearby";
           }
           break;
 
@@ -535,13 +543,37 @@ export function GameProvider({ children }: GameProviderProps) {
           break;
 
         case PlayerAction.OBSERVE:
-          state.player.observe();
-          message = "Observed the ecosystem";
+          if (state.player) {
+            state.player.observe();
+            // Find nearby entities for observation
+            const nearbyEntities = updatedEntities.filter(
+              (e) => e.position.distanceTo(state.player!.position) <= 100
+            );
+            const plantCount = nearbyEntities.filter(
+              (e) => e.type === EntityType.PLANT
+            ).length;
+            const herbivoreCount = nearbyEntities.filter(
+              (e) => e.type === EntityType.HERBIVORE
+            ).length;
+            const carnivoreCount = nearbyEntities.filter(
+              (e) => e.type === EntityType.CARNIVORE
+            ).length;
+            message = `Observed: ${plantCount} plants, ${herbivoreCount} herbivores, ${carnivoreCount} carnivores`;
+          }
           break;
 
         case PlayerAction.RESTORE:
-          state.player.restore(state.player.position);
-          message = "Restored the area";
+          if (state.player) {
+            state.player.restore(state.player.position);
+            // Heal nearby entities
+            const entitiesToHeal = updatedEntities.filter(
+              (e) => e.position.distanceTo(state.player!.position) <= 80
+            );
+            entitiesToHeal.forEach((entity) => {
+              entity.health = Math.min(entity.maxHealth, entity.health + 10);
+            });
+            message = `Restored area, healed ${entitiesToHeal.length} entities`;
+          }
           break;
       }
 
@@ -568,14 +600,17 @@ export function GameProvider({ children }: GameProviderProps) {
     dispatch({ type: GameActions.TOGGLE_PAUSE });
   }, []);
 
-  const resetGame = useCallback(() => {
-    dispatch({ type: GameActions.RESET_GAME });
-    initializeGame();
-  }, [initializeGame]);
+  const resetGame = useCallback(
+    (characterClass?: string) => {
+      dispatch({ type: GameActions.RESET_GAME });
+      initializeGame(characterClass || "wanderer");
+    },
+    [initializeGame]
+  );
 
   // Initialize game on mount
   useEffect(() => {
-    initializeGame();
+    initializeGame("wanderer");
   }, [initializeGame]);
 
   // Game loop

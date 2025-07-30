@@ -154,8 +154,8 @@ export class Plant extends Entity implements IPlant {
   constructor(id: string, position: Position, species: string = "moss") {
     super(id, EntityType.PLANT, position, 50);
     this.species = species;
-    this.growthRate = 0.1;
-    this.reproductionRate = 0.05;
+    this.growthRate = 0.05; // Reduced growth rate
+    this.reproductionRate = 0.01; // Much lower reproduction rate
     this.oxygenProduction = 1;
     this.foodValue = 10;
   }
@@ -169,7 +169,7 @@ export class Plant extends Entity implements IPlant {
         this.health + this.growthRate * deltaTime
       );
 
-      // Reproduce occasionally
+      // Reproduce occasionally (much less frequently)
       if (
         this.canReproduce() &&
         Math.random() < this.reproductionRate * deltaTime
@@ -203,10 +203,10 @@ export class Herbivore extends Entity implements IHerbivore {
   constructor(id: string, position: Position, species: string = "rat") {
     super(id, EntityType.HERBIVORE, position, 80);
     this.species = species;
-    this.speed = 1;
+    this.speed = 2; // Increased speed for movement
     this.hunger = 0;
     this.maxHunger = 100;
-    this.reproductionRate = 0.03;
+    this.reproductionRate = 0.005; // Much lower reproduction rate
     this.foodValue = 15;
   }
 
@@ -220,7 +220,19 @@ export class Herbivore extends Entity implements IHerbivore {
         this.health -= deltaTime * 0.5;
       }
 
-      // Reproduce when well-fed
+      // Move around randomly
+      if (Math.random() < 0.1 * deltaTime) {
+        const moveX = (Math.random() - 0.5) * this.speed * 10;
+        const moveY = (Math.random() - 0.5) * this.speed * 10;
+        this.position.x += moveX;
+        this.position.y += moveY;
+
+        // Keep within world bounds
+        this.position.x = Math.max(50, Math.min(2950, this.position.x));
+        this.position.y = Math.max(50, Math.min(2950, this.position.y));
+      }
+
+      // Reproduce when well-fed (much less frequently)
       if (
         this.canReproduce() &&
         this.hunger < this.maxHunger * 0.3 &&
@@ -260,11 +272,11 @@ export class Carnivore extends Entity implements ICarnivore {
   constructor(id: string, position: Position, species: string = "spider") {
     super(id, EntityType.CARNIVORE, position, 120);
     this.species = species;
-    this.speed = 1.5;
+    this.speed = 2.5; // Increased speed for movement
     this.hunger = 0;
     this.maxHunger = 80;
     this.attackPower = 20;
-    this.reproductionRate = 0.02;
+    this.reproductionRate = 0.003; // Much lower reproduction rate
   }
 
   update(deltaTime: number): void {
@@ -277,7 +289,19 @@ export class Carnivore extends Entity implements ICarnivore {
         this.health -= deltaTime * 0.3;
       }
 
-      // Reproduce when well-fed
+      // Move around randomly
+      if (Math.random() < 0.15 * deltaTime) {
+        const moveX = (Math.random() - 0.5) * this.speed * 10;
+        const moveY = (Math.random() - 0.5) * this.speed * 10;
+        this.position.x += moveX;
+        this.position.y += moveY;
+
+        // Keep within world bounds
+        this.position.x = Math.max(50, Math.min(2950, this.position.x));
+        this.position.y = Math.max(50, Math.min(2950, this.position.y));
+      }
+
+      // Reproduce when well-fed (much less frequently)
       if (
         this.canReproduce() &&
         this.hunger < this.maxHunger * 0.4 &&
@@ -306,12 +330,14 @@ export interface IPlayer extends IEntity {
   ecoImpact: number;
   observationSkill: number;
   restorationSkill: number;
+  characterClass: string;
   move(newPosition: Position): void;
   gather(entity: IEntity): IEntity;
   attack(entity: IEntity): void;
   plant(plantType: string, position: Position): Plant;
   observe(): void;
   restore(area: Position): void;
+  heal(): void;
 }
 
 // Player entity
@@ -320,13 +346,64 @@ export class Player extends Entity implements IPlayer {
   public ecoImpact: number;
   public observationSkill: number;
   public restorationSkill: number;
+  public characterClass: string;
 
-  constructor(id: string, position: Position) {
+  constructor(
+    id: string,
+    position: Position,
+    characterClass: string = "wanderer"
+  ) {
     super(id, EntityType.PLAYER, position, 200);
     this.inventory = [];
     this.ecoImpact = 0; // Positive = good for ecosystem, Negative = harmful
     this.observationSkill = 1;
     this.restorationSkill = 1;
+    this.characterClass = characterClass;
+
+    // Set character-specific stats
+    this.setCharacterStats(characterClass);
+  }
+
+  private setCharacterStats(characterClass: string) {
+    switch (characterClass) {
+      case "ecologist":
+        this.maxHealth = 150;
+        this.health = 150;
+        this.maxEnergy = 120;
+        this.energy = 120;
+        this.ecoImpact = 5;
+        this.observationSkill = 3;
+        this.restorationSkill = 3;
+        break;
+      case "ranger":
+        this.maxHealth = 180;
+        this.health = 180;
+        this.maxEnergy = 100;
+        this.energy = 100;
+        this.ecoImpact = 0;
+        this.observationSkill = 2;
+        this.restorationSkill = 1;
+        break;
+      case "guardian":
+        this.maxHealth = 200;
+        this.health = 200;
+        this.maxEnergy = 80;
+        this.energy = 80;
+        this.ecoImpact = 2;
+        this.observationSkill = 1;
+        this.restorationSkill = 4;
+        break;
+      case "wanderer":
+      default:
+        this.maxHealth = 160;
+        this.health = 160;
+        this.maxEnergy = 140;
+        this.energy = 140;
+        this.ecoImpact = 1;
+        this.observationSkill = 2;
+        this.restorationSkill = 2;
+        break;
+    }
   }
 
   move(newPosition: Position): void {
@@ -362,6 +439,12 @@ export class Player extends Entity implements IPlayer {
   restore(area: Position): void {
     // Restoration has significant positive impact
     this.ecoImpact += 10;
+  }
+
+  heal(): void {
+    // Heal the player
+    this.health = Math.min(this.maxHealth, this.health + 20);
+    this.energy = Math.min(this.maxEnergy, this.energy + 10);
   }
 }
 
