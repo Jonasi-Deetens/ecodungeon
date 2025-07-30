@@ -20,20 +20,26 @@ import {
   GameState,
   GameMessage,
   GameAction,
+  Room,
+  Door,
 } from "../types/gameTypes";
 import { CreatureAIFactory } from "../controllers/CreatureAI";
+import { RoomFactory } from "../factories/RoomFactory";
+import { DungeonGenerator } from "../factories/DungeonGenerator";
 
 // Game state structure
 const initialState: GameState = {
   player: null,
   entities: [],
-  dungeonSize: { width: 3000, height: 3000 }, // Large world for free movement
+  dungeonSize: { width: 30000, height: 30000 }, // 10x bigger world
   ecosystemHealth: EcosystemHealth.GOOD,
   gameTime: 0,
   isPaused: false,
   messages: [],
   selectedEntity: null,
-  playerPosition: new Position(1500, 1500), // Center of the world
+  playerPosition: new Position(1500, 1500), // Will be set to room center
+  rooms: [],
+  currentRoomId: "",
 };
 
 // Action types
@@ -49,6 +55,8 @@ const GameActions = {
   SELECT_ENTITY: "SELECT_ENTITY",
   TOGGLE_PAUSE: "TOGGLE_PAUSE",
   RESET_GAME: "RESET_GAME",
+  TOGGLE_DOOR: "TOGGLE_DOOR",
+  CHANGE_ROOM: "CHANGE_ROOM",
 } as const;
 
 type GameActionType = (typeof GameActions)[keyof typeof GameActions];
@@ -58,6 +66,8 @@ interface InitializeGameAction {
   payload: {
     player: Player;
     entities: IEntity[];
+    rooms: Room[];
+    currentRoomId: string;
   };
 }
 
@@ -129,6 +139,21 @@ interface ResetGameAction {
   type: typeof GameActions.RESET_GAME;
 }
 
+interface ToggleDoorAction {
+  type: typeof GameActions.TOGGLE_DOOR;
+  payload: {
+    roomId: string;
+    doorId: string;
+  };
+}
+
+interface ChangeRoomAction {
+  type: typeof GameActions.CHANGE_ROOM;
+  payload: {
+    newRoomId: string;
+  };
+}
+
 type GameReducerAction =
   | InitializeGameAction
   | UpdateGameAction
@@ -140,7 +165,9 @@ type GameReducerAction =
   | AddMessageAction
   | SelectEntityAction
   | TogglePauseAction
-  | ResetGameAction;
+  | ResetGameAction
+  | ToggleDoorAction
+  | ChangeRoomAction;
 
 // Game reducer
 function gameReducer(state: GameState, action: GameReducerAction): GameState {
@@ -150,9 +177,13 @@ function gameReducer(state: GameState, action: GameReducerAction): GameState {
         ...state,
         player: action.payload.player,
         entities: action.payload.entities,
+        rooms: action.payload.rooms,
+        currentRoomId: action.payload.currentRoomId,
         ecosystemHealth: EcosystemHealth.GOOD,
         gameTime: 0,
         messages: [],
+        selectedEntity: null,
+        playerPosition: action.payload.player.position,
       };
 
     case GameActions.UPDATE_GAME:
@@ -221,6 +252,31 @@ function gameReducer(state: GameState, action: GameReducerAction): GameState {
     case GameActions.RESET_GAME:
       return initialState;
 
+    case GameActions.TOGGLE_DOOR:
+      return {
+        ...state,
+        rooms: state.rooms.map((room) => {
+          if (room.id === action.payload.roomId) {
+            return {
+              ...room,
+              doors: room.doors.map((door) => {
+                if (door.id === action.payload.doorId) {
+                  return { ...door, isOpen: !door.isOpen };
+                }
+                return door;
+              }),
+            };
+          }
+          return room;
+        }),
+      };
+
+    case GameActions.CHANGE_ROOM:
+      return {
+        ...state,
+        currentRoomId: action.payload.newRoomId,
+      };
+
     default:
       return state;
   }
@@ -236,6 +292,8 @@ interface GameContextType extends GameState {
   selectEntity: (entity: IEntity | null) => void;
   togglePause: () => void;
   resetGame: (characterClass?: string) => void;
+  toggleDoor: (roomId: string, doorId: string) => void;
+  changeRoom: (newRoomId: string) => void;
 }
 
 // Create context
@@ -249,52 +307,37 @@ interface GameProviderProps {
 export function GameProvider({ children }: GameProviderProps) {
   const [state, dispatch] = useReducer(gameReducer, initialState);
 
-  // Initialize the game world
+  // Initialize the game world with multiple rooms
   const initializeGame = useCallback((characterClass: string = "wanderer") => {
+    // Generate multiple rooms using DungeonGenerator
+    const rooms = DungeonGenerator.generateDungeon();
+    const startingRoom = rooms[0]; // Start in the first room
+
+    if (!startingRoom) {
+      throw new Error("Failed to generate starting room");
+    }
+
+    const roomCenterX = startingRoom.x + startingRoom.width / 2;
+    const roomCenterY = startingRoom.y + startingRoom.height / 2;
+
     const player = new Player(
       "player_1",
-      new Position(1500, 1500),
-      characterClass
+      new Position(roomCenterX, roomCenterY),
+      characterClass,
+      startingRoom.id
     );
 
-    // Create initial ecosystem
-    const entities: IEntity[] = [];
-
-    // Add plants scattered across the world (within bounds)
-    for (let i = 0; i < 20; i++) {
-      const x = 50 + Math.random() * 2900; // 50 to 2950
-      const y = 50 + Math.random() * 2900; // 50 to 2950
-      const plant = new Plant(`plant_${i}`, new Position(x, y), "moss");
-      entities.push(plant);
-    }
-
-    // Add herbivores (rabbits) scattered across the world (within bounds)
-    for (let i = 0; i < 12; i++) {
-      const x = 50 + Math.random() * 2900; // 50 to 2950
-      const y = 50 + Math.random() * 2900; // 50 to 2950
-      const herbivore = new Herbivore(
-        `herbivore_${i}`,
-        new Position(x, y),
-        "rabbit"
-      );
-      entities.push(herbivore);
-    }
-
-    // Add carnivores (rats) scattered across the world (within bounds)
-    for (let i = 0; i < 6; i++) {
-      const x = 50 + Math.random() * 2900; // 50 to 2950
-      const y = 50 + Math.random() * 2900; // 50 to 2950
-      const carnivore = new Carnivore(
-        `carnivore_${i}`,
-        new Position(x, y),
-        "rat"
-      );
-      entities.push(carnivore);
-    }
+    // Combine all entities from all rooms
+    const allEntities: IEntity[] = rooms.flatMap((room) => room.entities);
 
     dispatch({
       type: GameActions.INITIALIZE_GAME,
-      payload: { player, entities },
+      payload: {
+        player,
+        entities: allEntities,
+        rooms,
+        currentRoomId: startingRoom.id,
+      },
     });
   }, []);
 
@@ -408,9 +451,20 @@ export function GameProvider({ children }: GameProviderProps) {
             entity.position.y + (Math.random() - 0.5) * 200
           );
 
-          // Ensure position is within bounds
-          newPosition.x = Math.max(50, Math.min(2950, newPosition.x));
-          newPosition.y = Math.max(50, Math.min(2950, newPosition.y));
+          // Ensure position is within room bounds
+          const currentRoom = state.rooms.find(
+            (room) => room.id === state.currentRoomId
+          );
+          if (currentRoom) {
+            newPosition.x = Math.max(
+              currentRoom.x + 50,
+              Math.min(currentRoom.x + currentRoom.width - 50, newPosition.x)
+            );
+            newPosition.y = Math.max(
+              currentRoom.y + 50,
+              Math.min(currentRoom.y + currentRoom.height - 50, newPosition.y)
+            );
+          }
 
           let newEntity: IEntity;
           if (entity.type === EntityType.PLANT) {
@@ -418,21 +472,24 @@ export function GameProvider({ children }: GameProviderProps) {
             newEntity = new Plant(
               `plant_${Date.now()}_${Math.random()}`,
               newPosition,
-              plant.species
+              plant.species,
+              entity.roomId
             );
           } else if (entity.type === EntityType.HERBIVORE) {
             const herbivore = entity as Herbivore;
             newEntity = new Herbivore(
               `herbivore_${Date.now()}_${Math.random()}`,
               newPosition,
-              herbivore.species
+              herbivore.species,
+              entity.roomId
             );
           } else if (entity.type === EntityType.CARNIVORE) {
             const carnivore = entity as Carnivore;
             newEntity = new Carnivore(
               `carnivore_${Date.now()}_${Math.random()}`,
               newPosition,
-              carnivore.species
+              carnivore.species,
+              entity.roomId
             );
           } else {
             return;
@@ -483,9 +540,20 @@ export function GameProvider({ children }: GameProviderProps) {
             nearbyEntities
           );
 
-          // Keep entity within world bounds
-          newPosition.x = Math.max(50, Math.min(2950, newPosition.x));
-          newPosition.y = Math.max(50, Math.min(2950, newPosition.y));
+          // Keep entity within its own room bounds
+          const entityRoom = state.rooms.find(
+            (room) => room.id === entity.roomId
+          );
+          if (entityRoom) {
+            newPosition.x = Math.max(
+              entityRoom.x + 50,
+              Math.min(entityRoom.x + entityRoom.width - 50, newPosition.x)
+            );
+            newPosition.y = Math.max(
+              entityRoom.y + 50,
+              Math.min(entityRoom.y + entityRoom.height - 50, newPosition.y)
+            );
+          }
 
           entity.position = newPosition;
         }
@@ -650,6 +718,20 @@ export function GameProvider({ children }: GameProviderProps) {
     [initializeGame]
   );
 
+  const toggleDoor = useCallback((roomId: string, doorId: string) => {
+    dispatch({
+      type: GameActions.TOGGLE_DOOR,
+      payload: { roomId, doorId },
+    });
+  }, []);
+
+  const changeRoom = useCallback((newRoomId: string) => {
+    dispatch({
+      type: GameActions.CHANGE_ROOM,
+      payload: { newRoomId },
+    });
+  }, []);
+
   // Initialize game on mount
   useEffect(() => {
     initializeGame("wanderer");
@@ -671,6 +753,8 @@ export function GameProvider({ children }: GameProviderProps) {
     selectEntity,
     togglePause,
     resetGame,
+    toggleDoor,
+    changeRoom,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

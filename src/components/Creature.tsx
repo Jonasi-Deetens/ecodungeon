@@ -15,6 +15,8 @@ interface CreatureProps {
   hunger?: number;
   maxHunger?: number;
   showRanges?: boolean;
+  screenWidth?: number;
+  screenHeight?: number;
 }
 
 const Creature: React.FC<CreatureProps> = ({
@@ -29,6 +31,8 @@ const Creature: React.FC<CreatureProps> = ({
   hunger,
   maxHunger,
   showRanges = false,
+  screenWidth = 400,
+  screenHeight = 600,
 }) => {
   const getCreatureIcon = (type: EntityTypeValue, species: string) => {
     switch (type) {
@@ -127,8 +131,14 @@ const Creature: React.FC<CreatureProps> = ({
   const screenX = position.x - cameraPosition.x - size / 2;
   const screenY = position.y - cameraPosition.y - size / 2;
 
-  // Only render if visible on screen
-  if (screenX < -100 || screenX > 500 || screenY < -100 || screenY > 800) {
+  // Only render if visible on screen (using actual screen bounds)
+  const margin = 2000; // Much larger margin to prevent entities from "teleporting" into view
+  if (
+    screenX < -margin ||
+    screenX > screenWidth + margin ||
+    screenY < -margin ||
+    screenY > screenHeight + margin
+  ) {
     return null;
   }
 

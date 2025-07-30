@@ -101,20 +101,20 @@ export class HerbivoreAI implements CreatureAI {
       this.isFleeing = false;
     }
 
-    // Check if near world boundaries and change direction if needed
-    const worldBounds = { minX: 50, maxX: 2950, minY: 50, maxY: 2950 };
+    // Check if near room boundaries and change direction if needed
+    const roomBounds = { minX: 0, maxX: 3000, minY: 0, maxY: 1500 }; // Default room bounds
     const nearBoundary =
-      position.x < worldBounds.minX + 100 ||
-      position.x > worldBounds.maxX - 100 ||
-      position.y < worldBounds.minY + 100 ||
-      position.y > worldBounds.maxY - 100;
+      position.x < roomBounds.minX + 100 ||
+      position.x > roomBounds.maxX - 100 ||
+      position.y < roomBounds.minY + 100 ||
+      position.y > roomBounds.maxY - 100;
 
     // Change wander direction periodically or when near boundary
     if (this.wanderTimer >= this.wanderInterval || nearBoundary) {
       // If near boundary, move away from it
       if (nearBoundary) {
-        const centerX = (worldBounds.minX + worldBounds.maxX) / 2;
-        const centerY = (worldBounds.minY + worldBounds.maxY) / 2;
+        const centerX = (roomBounds.minX + roomBounds.maxX) / 2;
+        const centerY = (roomBounds.minY + roomBounds.maxY) / 2;
         this.wanderDirection = {
           x: centerX - position.x,
           y: centerY - position.y,
@@ -272,20 +272,20 @@ export class CarnivoreAI implements CreatureAI {
       }
     }
 
-    // Check if near world boundaries and change direction if needed
-    const worldBounds = { minX: 50, maxX: 2950, minY: 50, maxY: 2950 };
+    // Check if near room boundaries and change direction if needed
+    const roomBounds = { minX: 0, maxX: 3000, minY: 0, maxY: 1500 }; // Default room bounds
     const nearBoundary =
-      position.x < worldBounds.minX + 100 ||
-      position.x > worldBounds.maxX - 100 ||
-      position.y < worldBounds.minY + 100 ||
-      position.y > worldBounds.maxY - 100;
+      position.x < roomBounds.minX + 100 ||
+      position.x > roomBounds.maxX - 100 ||
+      position.y < roomBounds.minY + 100 ||
+      position.y > roomBounds.maxY - 100;
 
     // Change wander direction periodically or when near boundary
     if (this.wanderTimer >= this.wanderInterval || nearBoundary) {
       // If near boundary, move away from it
       if (nearBoundary) {
-        const centerX = (worldBounds.minX + worldBounds.maxX) / 2;
-        const centerY = (worldBounds.minY + worldBounds.maxY) / 2;
+        const centerX = (roomBounds.minX + roomBounds.maxX) / 2;
+        const centerY = (roomBounds.minY + roomBounds.maxY) / 2;
         this.wanderDirection = {
           x: centerX - position.x,
           y: centerY - position.y,

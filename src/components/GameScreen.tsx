@@ -11,8 +11,9 @@ import { useGame } from "../context/GameContext";
 import { Position } from "../types/gameTypes";
 import Joystick from "./Joystick";
 import Player from "./Player";
-import Creature from "./Creature";
+import Room from "./Room";
 import { usePlayerController } from "../controllers/PlayerController";
+import { Door } from "../types/gameTypes";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -21,12 +22,16 @@ interface GameScreenProps {
   onBackToMenu: () => void;
 }
 
-// Game world dimensions (larger than screen for scrolling)
-const WORLD_WIDTH = screenWidth * 3;
-const WORLD_HEIGHT = screenHeight * 3;
+// World dimensions (10x bigger)
+const WORLD_WIDTH = 30000;
+const WORLD_HEIGHT = 30000;
+
+// Room dimensions
+const ROOM_WIDTH = 3000;
+const ROOM_HEIGHT = 1500;
 
 // Player movement speed
-const MOVEMENT_SPEED = 3;
+const MOVEMENT_SPEED = 15; // Increased from 3 to 15 for faster movement
 
 const GameScreen: React.FC<GameScreenProps> = ({
   selectedCharacter,
@@ -86,12 +91,19 @@ const GameScreen: React.FC<GameScreenProps> = ({
 
   // Initialize player position when game starts
   useEffect(() => {
-    if (game.player) {
-      const newPos = new Position(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
-      setPlayerPosition(newPos);
-      updateCameraPosition(newPos);
+    if (game.player && game.rooms.length > 0) {
+      const currentRoom = game.rooms.find(
+        (room) => room.id === game.currentRoomId
+      );
+      if (currentRoom) {
+        const roomCenterX = currentRoom.x + currentRoom.width / 2;
+        const roomCenterY = currentRoom.y + currentRoom.height / 2;
+        const newPos = new Position(roomCenterX, roomCenterY);
+        setPlayerPosition(newPos);
+        updateCameraPosition(newPos);
+      }
     }
-  }, [game.player]);
+  }, [game.player, game.rooms, game.currentRoomId]);
 
   // Initialize game with selected character
   useEffect(() => {
@@ -100,46 +112,50 @@ const GameScreen: React.FC<GameScreenProps> = ({
     }
   }, [selectedCharacter, game.resetGame]);
 
-  // Render entities in the world
-  const renderEntities = () => {
-    return game.entities.map((entity) => (
-      <Creature
-        key={entity.id}
-        id={entity.id}
-        type={entity.type}
-        position={entity.position}
-        cameraPosition={cameraPosition}
-        health={entity.health}
-        maxHealth={entity.maxHealth}
-        energy={entity.energy}
-        maxEnergy={entity.maxEnergy}
-        species={(entity as any).species || "moss"}
-        hunger={(entity as any).hunger}
-        maxHunger={(entity as any).maxHunger}
-        showRanges={showRanges}
-      />
-    ));
-  };
-
   // Handle joystick movement
   const handleJoystickMove = (direction: { x: number; y: number }) => {
     playerController.handleJoystickMove(direction);
   };
 
+  const handleDoorInteract = useCallback(
+    (door: Door) => {
+      // Find the room that contains this door
+      const room = game.rooms.find((r) =>
+        r.doors.some((d) => d.id === door.id)
+      );
+      if (room) {
+        game.toggleDoor(room.id, door.id);
+
+        // If door is now open and player is nearby, allow room transition
+        if (!door.isOpen) {
+          // Door will be toggled to open
+          // TODO: Implement room transition logic
+          console.log(`Door to room ${door.connectedRoomId} is now open`);
+        }
+      }
+    },
+    [game.rooms, game.toggleDoor]
+  );
+
   return (
     <GestureHandlerRootView style={styles.container}>
       {/* Game World */}
       <View style={styles.gameWorld}>
-        {/* Background */}
-        <View
-          style={[
-            styles.background,
-            { width: WORLD_WIDTH, height: WORLD_HEIGHT },
-          ]}
-        />
-
-        {/* Entities */}
-        {renderEntities()}
+        {/* Rooms */}
+        {game.rooms.map((room) => (
+          <Room
+            key={room.id}
+            config={{
+              room: room,
+              cameraPosition: cameraPosition,
+              showRanges: showRanges,
+              onDoorInteract: handleDoorInteract,
+              playerPosition: playerPosition,
+              screenWidth: screenWidth,
+              screenHeight: screenHeight,
+            }}
+          />
+        ))}
 
         {/* Player */}
         {game.player && (
@@ -173,6 +189,9 @@ const GameScreen: React.FC<GameScreenProps> = ({
           <View style={styles.ecosystemInfo}>
             <Text style={styles.ecosystemHealth}>
               🌿 {game.ecosystemHealth}
+            </Text>
+            <Text style={styles.currentRoom}>
+              🏠 Room: {game.currentRoomId}
             </Text>
           </View>
         </View>
@@ -256,10 +275,7 @@ const styles = StyleSheet.create({
     height: screenHeight,
     overflow: "hidden",
   },
-  background: {
-    backgroundColor: "#1e293b",
-    position: "absolute",
-  },
+
   entity: {
     position: "absolute",
     width: 30,
@@ -342,6 +358,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#4ade80",
     textTransform: "capitalize",
+  },
+  currentRoom: {
+    fontSize: 12,
+    color: "#94a3b8",
+    marginTop: 2,
   },
   joystickContainer: {
     position: "absolute",

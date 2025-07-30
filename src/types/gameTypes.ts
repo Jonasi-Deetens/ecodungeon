@@ -79,6 +79,7 @@ export interface IEntity {
   age: number;
   energy: number;
   maxEnergy: number;
+  roomId: string; // Which room this entity belongs to
   update(deltaTime: number): void;
   canReproduce(): boolean;
 }
@@ -94,12 +95,14 @@ export abstract class Entity implements IEntity {
   public age: number;
   public energy: number;
   public maxEnergy: number;
+  public roomId: string;
 
   constructor(
     id: string,
     type: EntityTypeValue,
     position: Position,
-    health: number = 100
+    health: number = 100,
+    roomId: string = ""
   ) {
     this.id = id;
     this.type = type;
@@ -110,6 +113,7 @@ export abstract class Entity implements IEntity {
     this.age = 0;
     this.energy = 100;
     this.maxEnergy = 100;
+    this.roomId = roomId;
   }
 
   update(deltaTime: number): void {
@@ -151,8 +155,13 @@ export class Plant extends Entity implements IPlant {
   public oxygenProduction: number;
   public foodValue: number;
 
-  constructor(id: string, position: Position, species: string = "moss") {
-    super(id, EntityType.PLANT, position, 50);
+  constructor(
+    id: string,
+    position: Position,
+    species: string = "moss",
+    roomId: string = ""
+  ) {
+    super(id, EntityType.PLANT, position, 50, roomId);
     this.species = species;
     this.growthRate = 0.05; // Reduced growth rate
     this.reproductionRate = 0.0003; // Adjusted for 30 FPS (0.01/30)
@@ -200,8 +209,13 @@ export class Herbivore extends Entity implements IHerbivore {
   public reproductionRate: number;
   public foodValue: number;
 
-  constructor(id: string, position: Position, species: string = "rabbit") {
-    super(id, EntityType.HERBIVORE, position, 60);
+  constructor(
+    id: string,
+    position: Position,
+    species: string = "rabbit",
+    roomId: string = ""
+  ) {
+    super(id, EntityType.HERBIVORE, position, 60, roomId);
     this.species = species;
     this.speed = 3; // Fast for escaping predators
     this.hunger = 0;
@@ -257,8 +271,13 @@ export class Carnivore extends Entity implements ICarnivore {
   public attackPower: number;
   public reproductionRate: number;
 
-  constructor(id: string, position: Position, species: string = "rat") {
-    super(id, EntityType.CARNIVORE, position, 100);
+  constructor(
+    id: string,
+    position: Position,
+    species: string = "rat",
+    roomId: string = ""
+  ) {
+    super(id, EntityType.CARNIVORE, position, 100, roomId);
     this.species = species;
     this.speed = 2.5; // Rats are fast and agile
     this.hunger = 0;
@@ -327,9 +346,10 @@ export class Player extends Entity implements IPlayer {
   constructor(
     id: string,
     position: Position,
-    characterClass: string = "wanderer"
+    characterClass: string = "wanderer",
+    roomId: string = ""
   ) {
-    super(id, EntityType.PLAYER, position, 200);
+    super(id, EntityType.PLAYER, position, 200, roomId);
     this.inventory = [];
     this.ecoImpact = 0; // Positive = good for ecosystem, Negative = harmful
     this.observationSkill = 1;
@@ -424,6 +444,28 @@ export class Player extends Entity implements IPlayer {
   }
 }
 
+export interface Room {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  biome: string;
+  entities: IEntity[];
+  doors: Door[];
+}
+
+export interface Door {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isOpen: boolean;
+  connectedRoomId: string;
+  direction: "north" | "south" | "east" | "west";
+}
+
 // Game state interface
 export interface GameState {
   player: Player | null;
@@ -435,6 +477,8 @@ export interface GameState {
   messages: GameMessage[];
   selectedEntity: IEntity | null;
   playerPosition: Position;
+  rooms: Room[];
+  currentRoomId: string;
 }
 
 // Game message interface
