@@ -214,7 +214,7 @@ export class Herbivore extends Entity implements IHerbivore {
     super.update(deltaTime);
 
     if (this.state === EntityState.ALIVE) {
-      this.hunger += deltaTime * 0.2;
+      this.hunger += deltaTime * 2.0; // Much faster hunger increase for testing
 
       if (this.hunger > this.maxHunger) {
         this.health -= deltaTime * 0.5;
@@ -271,7 +271,7 @@ export class Carnivore extends Entity implements ICarnivore {
     super.update(deltaTime);
 
     if (this.state === EntityState.ALIVE) {
-      this.hunger += deltaTime * 0.15;
+      this.hunger += deltaTime * 1.5; // Much faster hunger increase for testing
 
       if (this.hunger > this.maxHunger) {
         this.health -= deltaTime * 0.3;

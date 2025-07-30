@@ -37,6 +37,7 @@ const GameScreen: React.FC<GameScreenProps> = ({
     new Position(WORLD_WIDTH / 2, WORLD_HEIGHT / 2)
   );
   const [cameraPosition, setCameraPosition] = useState(new Position(0, 0));
+  const [showRanges, setShowRanges] = useState(false);
 
   // Update camera to follow player
   const updateCameraPosition = useCallback(
@@ -115,6 +116,7 @@ const GameScreen: React.FC<GameScreenProps> = ({
         species={(entity as any).species || "moss"}
         hunger={(entity as any).hunger}
         maxHunger={(entity as any).maxHunger}
+        showRanges={showRanges}
       />
     ));
   };
@@ -216,6 +218,17 @@ const GameScreen: React.FC<GameScreenProps> = ({
           >
             <Text style={styles.actionButtonIcon}>💚</Text>
             <Text style={styles.actionButtonText}>Heal</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              showRanges && { backgroundColor: "rgba(59, 130, 246, 0.3)" },
+            ]}
+            onPress={() => setShowRanges(!showRanges)}
+          >
+            <Text style={styles.actionButtonIcon}>🎯</Text>
+            <Text style={styles.actionButtonText}>Ranges</Text>
           </TouchableOpacity>
         </View>
 

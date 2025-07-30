@@ -14,6 +14,7 @@ interface CreatureProps {
   species: string;
   hunger?: number;
   maxHunger?: number;
+  showRanges?: boolean;
 }
 
 const Creature: React.FC<CreatureProps> = ({
@@ -27,6 +28,7 @@ const Creature: React.FC<CreatureProps> = ({
   species,
   hunger,
   maxHunger,
+  showRanges = false,
 }) => {
   const getCreatureIcon = (type: EntityTypeValue, species: string) => {
     switch (type) {
@@ -146,6 +148,26 @@ const Creature: React.FC<CreatureProps> = ({
         {getCreatureIcon(type, species)}
       </Text>
 
+      {/* Range indicators */}
+      {showRanges && (
+        <>
+          {/* Hunt range for carnivores */}
+          {type === EntityType.CARNIVORE && (
+            <View style={[styles.rangeIndicator, styles.huntRange]} />
+          )}
+
+          {/* Flee range for herbivores */}
+          {type === EntityType.HERBIVORE && (
+            <View style={[styles.rangeIndicator, styles.fleeRange]} />
+          )}
+
+          {/* Food detection range for herbivores */}
+          {type === EntityType.HERBIVORE && (
+            <View style={[styles.rangeIndicator, styles.foodRange]} />
+          )}
+        </>
+      )}
+
       {/* Health bar for creatures */}
       {type !== EntityType.PLANT && (
         <View style={styles.healthBar}>
@@ -224,6 +246,37 @@ const styles = StyleSheet.create({
   hungerFill: {
     height: "100%",
     borderRadius: 2,
+  },
+  rangeIndicator: {
+    position: "absolute",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    borderRadius: 1000,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  huntRange: {
+    width: 240, // 120px radius * 2 (from CarnivoreAI huntRange)
+    height: 240,
+    left: -100,
+    top: -100,
+    borderColor: "rgba(239, 68, 68, 0.4)", // Red for hunting
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+  },
+  fleeRange: {
+    width: 160, // 80px radius * 2 (from HerbivoreAI flee distance)
+    height: 160,
+    left: -60,
+    top: -60,
+    borderColor: "rgba(59, 130, 246, 0.4)", // Blue for fleeing
+    backgroundColor: "rgba(59, 130, 246, 0.1)",
+  },
+  foodRange: {
+    width: 100, // 50px radius * 2 (from HerbivoreAI foodDetectionRange)
+    height: 100,
+    left: -25,
+    top: -25,
+    borderColor: "rgba(34, 197, 94, 0.4)", // Green for food
+    backgroundColor: "rgba(34, 197, 94, 0.1)",
   },
 });
 

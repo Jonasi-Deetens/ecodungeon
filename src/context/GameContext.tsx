@@ -260,18 +260,18 @@ export function GameProvider({ children }: GameProviderProps) {
     // Create initial ecosystem
     const entities: IEntity[] = [];
 
-    // Add plants scattered across the world
+    // Add plants scattered across the world (within bounds)
     for (let i = 0; i < 20; i++) {
-      const x = Math.random() * 3000;
-      const y = Math.random() * 3000;
+      const x = 50 + Math.random() * 2900; // 50 to 2950
+      const y = 50 + Math.random() * 2900; // 50 to 2950
       const plant = new Plant(`plant_${i}`, new Position(x, y), "moss");
       entities.push(plant);
     }
 
-    // Add herbivores (rabbits) scattered across the world
+    // Add herbivores (rabbits) scattered across the world (within bounds)
     for (let i = 0; i < 12; i++) {
-      const x = Math.random() * 3000;
-      const y = Math.random() * 3000;
+      const x = 50 + Math.random() * 2900; // 50 to 2950
+      const y = 50 + Math.random() * 2900; // 50 to 2950
       const herbivore = new Herbivore(
         `herbivore_${i}`,
         new Position(x, y),
@@ -280,10 +280,10 @@ export function GameProvider({ children }: GameProviderProps) {
       entities.push(herbivore);
     }
 
-    // Add carnivores (rats) scattered across the world
+    // Add carnivores (rats) scattered across the world (within bounds)
     for (let i = 0; i < 6; i++) {
-      const x = Math.random() * 3000;
-      const y = Math.random() * 3000;
+      const x = 50 + Math.random() * 2900; // 50 to 2950
+      const y = 50 + Math.random() * 2900; // 50 to 2950
       const carnivore = new Carnivore(
         `carnivore_${i}`,
         new Position(x, y),
@@ -393,6 +393,8 @@ export function GameProvider({ children }: GameProviderProps) {
               nearbyPlants[Math.floor(Math.random() * nearbyPlants.length)];
             if (target) {
               herbivore.eat(target);
+              // Remove the eaten plant from the game
+              target.state = EntityState.DEAD;
             }
           }
         }
@@ -466,9 +468,12 @@ export function GameProvider({ children }: GameProviderProps) {
             (entity as any).species
           );
 
-          // Get nearby entities for AI decision making
+          // Get nearby entities for AI decision making (within reasonable range)
           const nearbyEntities = state.entities.filter(
-            (e) => e.id !== entity.id && e.state === EntityState.ALIVE
+            (e) =>
+              e.id !== entity.id &&
+              e.state === EntityState.ALIVE &&
+              entity.position.distanceTo(e.position) <= 200 // Only consider entities within 200px
           );
 
           // Update position using AI
@@ -491,14 +496,19 @@ export function GameProvider({ children }: GameProviderProps) {
       // Handle entity interactions
       const finalEntities = handleEntityInteractions(updatedEntities);
 
+      // Remove dead entities
+      const aliveEntities = finalEntities.filter(
+        (entity) => entity.state !== EntityState.DEAD
+      );
+
       // Calculate ecosystem health
-      const ecosystemHealth = calculateEcosystemHealth(finalEntities);
+      const ecosystemHealth = calculateEcosystemHealth(aliveEntities);
 
       dispatch({
         type: GameActions.UPDATE_GAME,
         payload: {
           deltaTime,
-          entities: finalEntities,
+          entities: aliveEntities,
           ecosystemHealth,
         },
       });

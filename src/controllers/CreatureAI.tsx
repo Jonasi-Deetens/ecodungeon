@@ -138,12 +138,27 @@ export class HerbivoreAI implements CreatureAI {
       this.wanderTimer = 0;
     }
 
-    // Move towards nearby plants if hungry (prioritize food over fleeing when very hungry)
+    // Move towards nearby plants if hungry (only within food detection range)
+    const foodDetectionRange = 50; // Same as the green circle range
     const nearbyPlants = nearbyEntities.filter(
-      (e) => e.type === EntityType.PLANT
+      (e) =>
+        e.type === EntityType.PLANT &&
+        position.distanceTo(e.position) <= foodDetectionRange
     );
+
     if (nearbyPlants.length > 0) {
-      const closestPlant = nearbyPlants[0];
+      // Find the closest plant within range
+      let closestPlant = nearbyPlants[0];
+      let closestDistance = position.distanceTo(closestPlant.position);
+
+      for (const plant of nearbyPlants) {
+        const distance = position.distanceTo(plant.position);
+        if (distance < closestDistance) {
+          closestPlant = plant;
+          closestDistance = distance;
+        }
+      }
+
       const direction = {
         x: closestPlant.position.x - position.x,
         y: closestPlant.position.y - position.y,
