@@ -48,7 +48,7 @@ export const EntityState = {
 
 export type EntityStateValue = (typeof EntityState)[keyof typeof EntityState];
 
-// Position in the dungeon grid
+// Position in the dungeon world (free movement)
 export class Position {
   constructor(public x: number, public y: number) {}
 
@@ -57,6 +57,13 @@ export class Position {
   }
 
   distanceTo(other: Position): number {
+    const dx = this.x - other.x;
+    const dy = this.y - other.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // Manhattan distance for grid-like calculations
+  manhattanDistance(other: Position): number {
     return Math.abs(this.x - other.x) + Math.abs(this.y - other.y);
   }
 }

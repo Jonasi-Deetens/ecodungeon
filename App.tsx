@@ -7,147 +7,78 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Platform,
+  StatusBar,
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
-import GameWorld from "./src/components/GameWorld";
-import PlayerStats from "./src/components/PlayerStats";
-import EcosystemStatus from "./src/components/EcosystemStatus";
-import ActionPanel from "./src/components/ActionPanel";
+import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { GameProvider } from "./src/context/GameContext";
+import MainMenu from "./src/components/MainMenu";
+import CharacterSelect from "./src/components/CharacterSelect";
+import GameScreen from "./src/components/GameScreen";
+import OptionsScreen from "./src/components/OptionsScreen";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
-type TabType = "game" | "stats" | "ecosystem" | "actions";
+type ScreenType = "menu" | "character-select" | "game" | "options";
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>("game");
+  const [currentScreen, setCurrentScreen] = useState<ScreenType>("menu");
+  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(
+    null
+  );
 
-  const renderTabContent = () => {
-    switch (activeTab) {
+  const renderScreen = () => {
+    switch (currentScreen) {
+      case "menu":
+        return (
+          <MainMenu
+            onPlayGame={() => setCurrentScreen("character-select")}
+            onOptions={() => setCurrentScreen("options")}
+          />
+        );
+      case "character-select":
+        return (
+          <CharacterSelect
+            onCharacterSelect={(character) => {
+              setSelectedCharacter(character);
+              setCurrentScreen("game");
+            }}
+            onBack={() => setCurrentScreen("menu")}
+          />
+        );
       case "game":
-        return <GameWorld />;
-      case "stats":
-        return <PlayerStats />;
-      case "ecosystem":
-        return <EcosystemStatus />;
-      case "actions":
-        return <ActionPanel />;
+        return (
+          <GameScreen
+            selectedCharacter={selectedCharacter}
+            onBackToMenu={() => setCurrentScreen("menu")}
+          />
+        );
+      case "options":
+        return <OptionsScreen onBack={() => setCurrentScreen("menu")} />;
       default:
-        return <GameWorld />;
+        return (
+          <MainMenu
+            onPlayGame={() => setCurrentScreen("character-select")}
+            onOptions={() => setCurrentScreen("options")}
+          />
+        );
     }
   };
 
-  const TabButton: React.FC<{ tab: TabType; icon: string; label: string }> = ({
-    tab,
-    icon,
-    label,
-  }) => (
-    <TouchableOpacity
-      style={[styles.tabButton, activeTab === tab && styles.activeTabButton]}
-      onPress={() => setActiveTab(tab)}
-      activeOpacity={0.7}
-    >
-      <Text style={[styles.tabIcon, activeTab === tab && styles.activeTabIcon]}>
-        {icon}
-      </Text>
-      <Text
-        style={[styles.tabLabel, activeTab === tab && styles.activeTabLabel]}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-
   return (
     <GameProvider>
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style="light" />
-
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>🌿 EcoDungeon</Text>
-          <Text style={styles.subtitle}>Living Ecosystem</Text>
-        </View>
-
-        {/* Main Content */}
-        <View style={styles.mainContent}>{renderTabContent()}</View>
-
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TabButton tab="game" icon="🎮" label="Game" />
-          <TabButton tab="stats" icon="🧙" label="Player" />
-          <TabButton tab="ecosystem" icon="🌍" label="Ecosystem" />
-          <TabButton tab="actions" icon="⚡" label="Actions" />
-        </View>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+        <ExpoStatusBar style="light" />
+        {renderScreen()}
       </SafeAreaView>
     </GameProvider>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: "#0f172a",
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 10 : 20,
-    paddingBottom: 15,
-    backgroundColor: "#1e293b",
-    borderBottomWidth: 1,
-    borderBottomColor: "#334155",
-  },
-  title: {
-    fontSize: screenWidth > 768 ? 28 : 24,
-    fontWeight: "bold",
-    color: "#4ade80",
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: screenWidth > 768 ? 16 : 14,
-    color: "#94a3b8",
-    textAlign: "center",
-    marginTop: 2,
-  },
-  mainContent: {
-    flex: 1,
-    paddingHorizontal: screenWidth > 768 ? 20 : 10,
-    paddingVertical: 10,
-  },
-  bottomNav: {
-    flexDirection: "row",
-    backgroundColor: "#1e293b",
-    borderTopWidth: 1,
-    borderTopColor: "#334155",
-    paddingBottom: Platform.OS === "ios" ? 20 : 10,
-    paddingTop: 10,
-  },
-  tabButton: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  activeTabButton: {
-    backgroundColor: "#334155",
-    borderRadius: 8,
-    marginHorizontal: 4,
-  },
-  tabIcon: {
-    fontSize: screenWidth > 768 ? 24 : 20,
-    marginBottom: 4,
-  },
-  activeTabIcon: {
-    color: "#4ade80",
-  },
-  tabLabel: {
-    fontSize: screenWidth > 768 ? 12 : 10,
-    color: "#94a3b8",
-    fontWeight: "500",
-  },
-  activeTabLabel: {
-    color: "#4ade80",
-    fontWeight: "bold",
   },
 });
 

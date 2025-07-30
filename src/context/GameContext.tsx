@@ -26,13 +26,13 @@ import {
 const initialState: GameState = {
   player: null,
   entities: [],
-  dungeonSize: { width: 20, height: 15 },
+  dungeonSize: { width: 3000, height: 3000 }, // Large world for free movement
   ecosystemHealth: EcosystemHealth.GOOD,
   gameTime: 0,
   isPaused: false,
   messages: [],
   selectedEntity: null,
-  playerPosition: new Position(10, 7),
+  playerPosition: new Position(1500, 1500), // Center of the world
 };
 
 // Action types
@@ -250,23 +250,23 @@ export function GameProvider({ children }: GameProviderProps) {
 
   // Initialize the game world
   const initializeGame = useCallback(() => {
-    const player = new Player("player_1", new Position(10, 7));
+    const player = new Player("player_1", new Position(1500, 1500));
 
     // Create initial ecosystem
     const entities: IEntity[] = [];
 
-    // Add some plants
-    for (let i = 0; i < 15; i++) {
-      const x = Math.floor(Math.random() * 20);
-      const y = Math.floor(Math.random() * 15);
+    // Add plants scattered across the world
+    for (let i = 0; i < 50; i++) {
+      const x = Math.random() * 3000;
+      const y = Math.random() * 3000;
       const plant = new Plant(`plant_${i}`, new Position(x, y), "moss");
       entities.push(plant);
     }
 
-    // Add some herbivores
-    for (let i = 0; i < 8; i++) {
-      const x = Math.floor(Math.random() * 20);
-      const y = Math.floor(Math.random() * 15);
+    // Add herbivores scattered across the world
+    for (let i = 0; i < 25; i++) {
+      const x = Math.random() * 3000;
+      const y = Math.random() * 3000;
       const herbivore = new Herbivore(
         `herbivore_${i}`,
         new Position(x, y),
@@ -275,10 +275,10 @@ export function GameProvider({ children }: GameProviderProps) {
       entities.push(herbivore);
     }
 
-    // Add some carnivores
-    for (let i = 0; i < 3; i++) {
-      const x = Math.floor(Math.random() * 20);
-      const y = Math.floor(Math.random() * 15);
+    // Add carnivores scattered across the world
+    for (let i = 0; i < 10; i++) {
+      const x = Math.random() * 3000;
+      const y = Math.random() * 3000;
       const carnivore = new Carnivore(
         `carnivore_${i}`,
         new Position(x, y),
@@ -348,7 +348,7 @@ export function GameProvider({ children }: GameProviderProps) {
             (e) =>
               e.type === EntityType.HERBIVORE &&
               e.state === EntityState.ALIVE &&
-              entity.position.distanceTo(e.position) <= 2
+              entity.position.distanceTo(e.position) <= 100
           ) as Herbivore[];
 
           if (
@@ -377,7 +377,7 @@ export function GameProvider({ children }: GameProviderProps) {
             (e) =>
               e.type === EntityType.PLANT &&
               e.state === EntityState.ALIVE &&
-              entity.position.distanceTo(e.position) <= 1
+              entity.position.distanceTo(e.position) <= 50
           ) as Plant[];
 
           if (
@@ -397,13 +397,13 @@ export function GameProvider({ children }: GameProviderProps) {
       entities.forEach((entity) => {
         if (entity.state === EntityState.REPRODUCING) {
           const newPosition = new Position(
-            entity.position.x + (Math.random() - 0.5) * 2,
-            entity.position.y + (Math.random() - 0.5) * 2
+            entity.position.x + (Math.random() - 0.5) * 200,
+            entity.position.y + (Math.random() - 0.5) * 200
           );
 
           // Ensure position is within bounds
-          newPosition.x = Math.max(0, Math.min(19, Math.floor(newPosition.x)));
-          newPosition.y = Math.max(0, Math.min(14, Math.floor(newPosition.y)));
+          newPosition.x = Math.max(50, Math.min(2950, newPosition.x));
+          newPosition.y = Math.max(50, Math.min(2950, newPosition.y));
 
           let newEntity: IEntity;
           if (entity.type === EntityType.PLANT) {
@@ -481,8 +481,8 @@ export function GameProvider({ children }: GameProviderProps) {
       if (!state.player) return;
 
       // Ensure position is within bounds
-      newPosition.x = Math.max(0, Math.min(19, newPosition.x));
-      newPosition.y = Math.max(0, Math.min(14, newPosition.y));
+      newPosition.x = Math.max(50, Math.min(2950, newPosition.x));
+      newPosition.y = Math.max(50, Math.min(2950, newPosition.y));
 
       state.player.move(newPosition);
 
@@ -508,7 +508,7 @@ export function GameProvider({ children }: GameProviderProps) {
         case PlayerAction.GATHER:
           if (
             targetEntity &&
-            targetEntity.position.equals(state.player.position)
+            targetEntity.position.distanceTo(state.player.position) <= 50
           ) {
             state.player.gather(targetEntity);
             updatedEntities = updatedEntities.filter(
@@ -521,7 +521,7 @@ export function GameProvider({ children }: GameProviderProps) {
         case PlayerAction.ATTACK:
           if (
             targetEntity &&
-            targetEntity.position.equals(state.player.position)
+            targetEntity.position.distanceTo(state.player.position) <= 50
           ) {
             state.player.attack(targetEntity);
             message = `Attacked ${targetEntity.type}`;
