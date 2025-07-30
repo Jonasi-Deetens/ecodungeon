@@ -1,4 +1,4 @@
-import { Room, Door } from "../types/gameTypes";
+import { Room, Teleporter } from "../types/gameTypes";
 import { RoomFactory } from "./RoomFactory";
 
 export interface DungeonRoom {
@@ -9,6 +9,7 @@ export interface DungeonRoom {
   height: number;
   biome: string;
   connections: {
+    [key: string]: string | undefined;
     north?: string;
     south?: string;
     east?: string;
@@ -20,7 +21,6 @@ export interface DungeonRoom {
 export class DungeonGenerator {
   private static readonly ROOM_WIDTH = 4000;
   private static readonly ROOM_HEIGHT = 2000;
-  private static readonly ROOM_SPACING = 200; // Space between rooms
 
   static generateDungeon(): Room[] {
     const rooms: DungeonRoom[] = [];
@@ -52,11 +52,16 @@ export class DungeonGenerator {
         directions[Math.floor(Math.random() * directions.length)];
       if (!direction) continue;
 
-      const [newX, newY] = this.getAdjacentPosition(
-        sourceRoom.x,
-        sourceRoom.y,
-        direction
-      );
+      // Extract grid coordinates from room ID (format: room_x_y)
+      const roomIdParts = sourceRoom.id.split("_");
+      const gridX = parseInt(roomIdParts[1] || "0");
+      const gridY = parseInt(roomIdParts[2] || "0");
+
+      const [newX, newY] = this.getAdjacentPosition(gridX, gridY, direction);
+
+      // Only allow positive coordinates
+      if (newX < 0 || newY < 0) continue;
+
       const gridKey = `${newX},${newY}`;
 
       // Check if position is already occupied
@@ -82,8 +87,8 @@ export class DungeonGenerator {
     y: number,
     templateId: string
   ): DungeonRoom {
-    const worldX = x * (this.ROOM_WIDTH + this.ROOM_SPACING);
-    const worldY = y * (this.ROOM_HEIGHT + this.ROOM_SPACING);
+    const worldX = x * this.ROOM_WIDTH;
+    const worldY = y * this.ROOM_HEIGHT;
     const roomId = `room_${x}_${y}`;
 
     const roomData = RoomFactory.generateRandomRoom(worldX, worldY, roomId);
@@ -118,14 +123,23 @@ export class DungeonGenerator {
     grid: { [key: string]: DungeonRoom }
   ): string[] {
     const directions = [];
+
+    // Extract grid coordinates from room ID
+    const roomIdParts = room.id.split("_");
+    const gridX = parseInt(roomIdParts[1] || "0");
+    const gridY = parseInt(roomIdParts[2] || "0");
+
     const positions = [
-      { dir: "north", x: room.x, y: room.y - 1 },
-      { dir: "south", x: room.x, y: room.y + 1 },
-      { dir: "east", x: room.x + 1, y: room.y },
-      { dir: "west", x: room.x - 1, y: room.y },
+      { dir: "north", x: gridX, y: gridY - 1 },
+      { dir: "south", x: gridX, y: gridY + 1 },
+      { dir: "east", x: gridX + 1, y: gridY },
+      { dir: "west", x: gridX - 1, y: gridY },
     ];
 
     for (const pos of positions) {
+      // Only allow positive coordinates
+      if (pos.x < 0 || pos.y < 0) continue;
+
       const gridKey = `${pos.x},${pos.y}`;
       if (!grid[gridKey]) {
         directions.push(pos.dir);
@@ -182,60 +196,66 @@ export class DungeonGenerator {
 
   private static convertToRooms(dungeonRooms: DungeonRoom[]): Room[] {
     return dungeonRooms.map((dungeonRoom) => {
-      const doors: Door[] = [];
+      const teleporters: Teleporter[] = [];
 
-      // Create doors for each connection
+      // Create teleporters for each connection (positioned at room edges)
       if (dungeonRoom.connections.north) {
-        doors.push({
-          id: `door_${dungeonRoom.id}_north`,
+        teleporters.push({
+          id: `teleporter_${dungeonRoom.id}_north`,
           x: dungeonRoom.x + dungeonRoom.width / 2 - 50,
-          y: dungeonRoom.y,
+          y: dungeonRoom.y + 50, // Teleporter at the top edge of the room
           width: 100,
           height: 100,
-          isOpen: false,
           connectedRoomId: dungeonRoom.connections.north,
           direction: "north" as const,
         });
       }
 
       if (dungeonRoom.connections.south) {
-        doors.push({
-          id: `door_${dungeonRoom.id}_south`,
+        teleporters.push({
+          id: `teleporter_${dungeonRoom.id}_south`,
           x: dungeonRoom.x + dungeonRoom.width / 2 - 50,
-          y: dungeonRoom.y + dungeonRoom.height - 100,
+          y: dungeonRoom.y + dungeonRoom.height - 150, // Teleporter at the bottom edge of the room
           width: 100,
           height: 100,
-          isOpen: false,
           connectedRoomId: dungeonRoom.connections.south,
           direction: "south" as const,
         });
       }
 
       if (dungeonRoom.connections.east) {
-        doors.push({
-          id: `door_${dungeonRoom.id}_east`,
-          x: dungeonRoom.x + dungeonRoom.width - 100,
+        teleporters.push({
+          id: `teleporter_${dungeonRoom.id}_east`,
+          x: dungeonRoom.x + dungeonRoom.width - 150, // Teleporter at the right edge of the room
           y: dungeonRoom.y + dungeonRoom.height / 2 - 50,
           width: 100,
           height: 100,
-          isOpen: false,
           connectedRoomId: dungeonRoom.connections.east,
           direction: "east" as const,
         });
       }
 
       if (dungeonRoom.connections.west) {
-        doors.push({
-          id: `door_${dungeonRoom.id}_west`,
-          x: dungeonRoom.x,
+        teleporters.push({
+          id: `teleporter_${dungeonRoom.id}_west`,
+          x: dungeonRoom.x + 50, // Teleporter at the left edge of the room
           y: dungeonRoom.y + dungeonRoom.height / 2 - 50,
           width: 100,
           height: 100,
-          isOpen: false,
           connectedRoomId: dungeonRoom.connections.west,
           direction: "west" as const,
         });
       }
+
+      console.log(`Room ${dungeonRoom.id}:`, {
+        position: { x: dungeonRoom.x, y: dungeonRoom.y },
+        size: { width: dungeonRoom.width, height: dungeonRoom.height },
+        teleporters: teleporters.map((t) => ({
+          id: t.id,
+          position: { x: t.x, y: t.y },
+          direction: t.direction,
+        })),
+      });
 
       return {
         id: dungeonRoom.id,
@@ -245,7 +265,7 @@ export class DungeonGenerator {
         height: dungeonRoom.height,
         biome: dungeonRoom.biome,
         entities: dungeonRoom.roomData.entities,
-        doors,
+        teleporters,
       };
     });
   }

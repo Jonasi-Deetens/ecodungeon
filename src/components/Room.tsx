@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Text } from "react-native";
-import { Position, Room as RoomType, Door } from "../types/gameTypes";
+import { Position, Room as RoomType, Teleporter } from "../types/gameTypes";
+import TeleporterComponent from "./Teleporter";
 import Creature from "./Creature";
-import DoorComponent from "./Door";
 import { Biomes, BiomeStyle } from "../types/biomeTypes";
 
 interface RoomConfig {
   room: RoomType;
   cameraPosition: Position;
   showRanges?: boolean;
-  onDoorInteract?: (door: Door) => void;
+  onTeleport?: (teleporter: Teleporter) => void;
   playerPosition: Position;
   screenWidth?: number;
   screenHeight?: number;
@@ -149,16 +149,26 @@ const Room: React.FC<RoomProps> = ({ config }) => {
         ))}
       </View>
 
-      {/* Room Doors */}
-      {config.room.doors.map((door) => (
-        <DoorComponent
-          key={door.id}
-          door={door}
-          cameraPosition={config.cameraPosition}
-          onDoorInteract={config.onDoorInteract || (() => {})}
-          playerPosition={config.playerPosition}
-        />
-      ))}
+      {/* Room Teleporters */}
+      {config.room.teleporters.map((teleporter) => {
+        // Find the linked teleporter in the connected room
+        const linkedTeleporter = config.room.teleporters.find(
+          (t) =>
+            t.connectedRoomId === teleporter.connectedRoomId &&
+            t.id !== teleporter.id
+        );
+
+        return (
+          <TeleporterComponent
+            key={teleporter.id}
+            teleporter={teleporter}
+            cameraPosition={config.cameraPosition}
+            onTeleport={config.onTeleport || (() => {})}
+            playerPosition={config.playerPosition}
+            linkedTeleporter={linkedTeleporter || undefined}
+          />
+        );
+      })}
 
       {/* Room Entities */}
       {config.room.entities.map((entity: any) => (

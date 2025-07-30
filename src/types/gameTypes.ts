@@ -452,16 +452,15 @@ export interface Room {
   height: number;
   biome: string;
   entities: IEntity[];
-  doors: Door[];
+  teleporters: Teleporter[];
 }
 
-export interface Door {
+export interface Teleporter {
   id: string;
   x: number;
   y: number;
   width: number;
   height: number;
-  isOpen: boolean;
   connectedRoomId: string;
   direction: "north" | "south" | "east" | "west";
 }

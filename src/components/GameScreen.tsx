@@ -13,7 +13,7 @@ import Joystick from "./Joystick";
 import Player from "./Player";
 import Room from "./Room";
 import { usePlayerController } from "../controllers/PlayerController";
-import { Door } from "../types/gameTypes";
+import { Teleporter } from "../types/gameTypes";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -64,12 +64,57 @@ const GameScreen: React.FC<GameScreenProps> = ({
     (newPosition: Position) => {
       setPlayerPosition(newPosition);
       updateCameraPosition(newPosition);
+
+      // Debug: Log player position and current room
+      const currentRoom = game.rooms.find(
+        (room) => room.id === game.currentRoomId
+      );
+      if (currentRoom) {
+        console.log(
+          `Player at (${Math.round(newPosition.x)}, ${Math.round(
+            newPosition.y
+          )}) in room ${currentRoom.id} at (${currentRoom.x}, ${currentRoom.y})`
+        );
+      }
+
+      // Check if player has moved to a different room
+      if (currentRoom) {
+        const withinCurrentRoom =
+          newPosition.x >= currentRoom.x + 50 &&
+          newPosition.x <= currentRoom.x + currentRoom.width - 50 &&
+          newPosition.y >= currentRoom.y + 50 &&
+          newPosition.y <= currentRoom.y + currentRoom.height - 50;
+
+        if (!withinCurrentRoom) {
+          // Player is outside current room, find which room they're in
+          for (const room of game.rooms) {
+            const withinRoom =
+              newPosition.x >= room.x + 50 &&
+              newPosition.x <= room.x + room.width - 50 &&
+              newPosition.y >= room.y + 50 &&
+              newPosition.y <= room.y + room.height - 50;
+
+            if (withinRoom && room.id !== game.currentRoomId) {
+              // Player has moved to a different room
+              game.changeRoom(room.id);
+              break;
+            }
+          }
+        }
+      }
+
       // Update game context player position without dispatching action
       if (game.player) {
         game.player.position = newPosition;
       }
     },
-    [updateCameraPosition, game.player]
+    [
+      updateCameraPosition,
+      game.player,
+      game.rooms,
+      game.currentRoomId,
+      game.changeRoom,
+    ]
   );
 
   // Memoized action handler
@@ -87,6 +132,8 @@ const GameScreen: React.FC<GameScreenProps> = ({
     onAction: handleAction,
     worldBounds: { width: WORLD_WIDTH, height: WORLD_HEIGHT },
     movementSpeed: MOVEMENT_SPEED,
+    rooms: game.rooms,
+    currentRoomId: game.currentRoomId,
   });
 
   // Initialize player position when game starts
@@ -117,24 +164,43 @@ const GameScreen: React.FC<GameScreenProps> = ({
     playerController.handleJoystickMove(direction);
   };
 
-  const handleDoorInteract = useCallback(
-    (door: Door) => {
-      // Find the room that contains this door
-      const room = game.rooms.find((r) =>
-        r.doors.some((d) => d.id === door.id)
+  const handleTeleport = useCallback(
+    (teleporter: Teleporter) => {
+      // Teleport player to the connected room
+      const targetRoom = game.rooms.find(
+        (r) => r.id === teleporter.connectedRoomId
       );
-      if (room) {
-        game.toggleDoor(room.id, door.id);
+      if (targetRoom) {
+        // Find the corresponding teleporter in the target room
+        const targetTeleporter = targetRoom.teleporters.find(
+          (t) => t.connectedRoomId === game.currentRoomId
+        );
 
-        // If door is now open and player is nearby, allow room transition
-        if (!door.isOpen) {
-          // Door will be toggled to open
-          // TODO: Implement room transition logic
-          console.log(`Door to room ${door.connectedRoomId} is now open`);
+        if (targetTeleporter) {
+          // Position player near the target teleporter
+          const newX = targetTeleporter.x + targetTeleporter.width / 2;
+          const newY = targetTeleporter.y + targetTeleporter.height / 2;
+          const newPosition = new Position(newX, newY);
+
+          setPlayerPosition(newPosition);
+          updateCameraPosition(newPosition);
+          game.changeRoom(teleporter.connectedRoomId);
+
+          if (game.player) {
+            game.player.position = newPosition;
+          }
+
+          console.log(`Teleported to room ${teleporter.connectedRoomId}`);
         }
       }
     },
-    [game.rooms, game.toggleDoor]
+    [
+      game.rooms,
+      game.currentRoomId,
+      game.changeRoom,
+      game.player,
+      updateCameraPosition,
+    ]
   );
 
   return (
@@ -142,20 +208,35 @@ const GameScreen: React.FC<GameScreenProps> = ({
       {/* Game World */}
       <View style={styles.gameWorld}>
         {/* Rooms */}
-        {game.rooms.map((room) => (
-          <Room
-            key={room.id}
-            config={{
-              room: room,
-              cameraPosition: cameraPosition,
-              showRanges: showRanges,
-              onDoorInteract: handleDoorInteract,
-              playerPosition: playerPosition,
-              screenWidth: screenWidth,
-              screenHeight: screenHeight,
-            }}
-          />
-        ))}
+        {game.rooms
+          .filter((room) => {
+            // Only render current room and adjacent rooms
+            if (room.id === game.currentRoomId) return true;
+
+            // Check if this room is connected to current room
+            const currentRoom = game.rooms.find(
+              (r) => r.id === game.currentRoomId
+            );
+            if (!currentRoom) return false;
+
+            return currentRoom.teleporters.some(
+              (teleporter) => teleporter.connectedRoomId === room.id
+            );
+          })
+          .map((room) => (
+            <Room
+              key={room.id}
+              config={{
+                room: room,
+                cameraPosition: cameraPosition,
+                showRanges: showRanges,
+                onTeleport: handleTeleport,
+                playerPosition: playerPosition,
+                screenWidth: screenWidth,
+                screenHeight: screenHeight,
+              }}
+            />
+          ))}
 
         {/* Player */}
         {game.player && (

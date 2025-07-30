@@ -21,7 +21,6 @@ import {
   GameMessage,
   GameAction,
   Room,
-  Door,
 } from "../types/gameTypes";
 import { CreatureAIFactory } from "../controllers/CreatureAI";
 import { RoomFactory } from "../factories/RoomFactory";
@@ -55,7 +54,6 @@ const GameActions = {
   SELECT_ENTITY: "SELECT_ENTITY",
   TOGGLE_PAUSE: "TOGGLE_PAUSE",
   RESET_GAME: "RESET_GAME",
-  TOGGLE_DOOR: "TOGGLE_DOOR",
   CHANGE_ROOM: "CHANGE_ROOM",
 } as const;
 
@@ -139,14 +137,6 @@ interface ResetGameAction {
   type: typeof GameActions.RESET_GAME;
 }
 
-interface ToggleDoorAction {
-  type: typeof GameActions.TOGGLE_DOOR;
-  payload: {
-    roomId: string;
-    doorId: string;
-  };
-}
-
 interface ChangeRoomAction {
   type: typeof GameActions.CHANGE_ROOM;
   payload: {
@@ -166,7 +156,6 @@ type GameReducerAction =
   | SelectEntityAction
   | TogglePauseAction
   | ResetGameAction
-  | ToggleDoorAction
   | ChangeRoomAction;
 
 // Game reducer
@@ -252,25 +241,6 @@ function gameReducer(state: GameState, action: GameReducerAction): GameState {
     case GameActions.RESET_GAME:
       return initialState;
 
-    case GameActions.TOGGLE_DOOR:
-      return {
-        ...state,
-        rooms: state.rooms.map((room) => {
-          if (room.id === action.payload.roomId) {
-            return {
-              ...room,
-              doors: room.doors.map((door) => {
-                if (door.id === action.payload.doorId) {
-                  return { ...door, isOpen: !door.isOpen };
-                }
-                return door;
-              }),
-            };
-          }
-          return room;
-        }),
-      };
-
     case GameActions.CHANGE_ROOM:
       return {
         ...state,
@@ -292,7 +262,6 @@ interface GameContextType extends GameState {
   selectEntity: (entity: IEntity | null) => void;
   togglePause: () => void;
   resetGame: (characterClass?: string) => void;
-  toggleDoor: (roomId: string, doorId: string) => void;
   changeRoom: (newRoomId: string) => void;
 }
 
@@ -718,13 +687,6 @@ export function GameProvider({ children }: GameProviderProps) {
     [initializeGame]
   );
 
-  const toggleDoor = useCallback((roomId: string, doorId: string) => {
-    dispatch({
-      type: GameActions.TOGGLE_DOOR,
-      payload: { roomId, doorId },
-    });
-  }, []);
-
   const changeRoom = useCallback((newRoomId: string) => {
     dispatch({
       type: GameActions.CHANGE_ROOM,
@@ -753,7 +715,6 @@ export function GameProvider({ children }: GameProviderProps) {
     selectEntity,
     togglePause,
     resetGame,
-    toggleDoor,
     changeRoom,
   };
 
