@@ -155,7 +155,7 @@ export class Plant extends Entity implements IPlant {
     super(id, EntityType.PLANT, position, 50);
     this.species = species;
     this.growthRate = 0.05; // Reduced growth rate
-    this.reproductionRate = 0.01; // Much lower reproduction rate
+    this.reproductionRate = 0.0003; // Adjusted for 30 FPS (0.01/30)
     this.oxygenProduction = 1;
     this.foodValue = 10;
   }
@@ -200,14 +200,14 @@ export class Herbivore extends Entity implements IHerbivore {
   public reproductionRate: number;
   public foodValue: number;
 
-  constructor(id: string, position: Position, species: string = "rat") {
-    super(id, EntityType.HERBIVORE, position, 80);
+  constructor(id: string, position: Position, species: string = "rabbit") {
+    super(id, EntityType.HERBIVORE, position, 60);
     this.species = species;
-    this.speed = 2; // Increased speed for movement
+    this.speed = 3; // Fast for escaping predators
     this.hunger = 0;
-    this.maxHunger = 100;
-    this.reproductionRate = 0.005; // Much lower reproduction rate
-    this.foodValue = 15;
+    this.maxHunger = 80;
+    this.reproductionRate = 0.00027; // Adjusted for 30 FPS (0.008/30)
+    this.foodValue = 20;
   }
 
   update(deltaTime: number): void {
@@ -218,18 +218,6 @@ export class Herbivore extends Entity implements IHerbivore {
 
       if (this.hunger > this.maxHunger) {
         this.health -= deltaTime * 0.5;
-      }
-
-      // Move around randomly
-      if (Math.random() < 0.1 * deltaTime) {
-        const moveX = (Math.random() - 0.5) * this.speed * 10;
-        const moveY = (Math.random() - 0.5) * this.speed * 10;
-        this.position.x += moveX;
-        this.position.y += moveY;
-
-        // Keep within world bounds
-        this.position.x = Math.max(50, Math.min(2950, this.position.x));
-        this.position.y = Math.max(50, Math.min(2950, this.position.y));
       }
 
       // Reproduce when well-fed (much less frequently)
@@ -269,14 +257,14 @@ export class Carnivore extends Entity implements ICarnivore {
   public attackPower: number;
   public reproductionRate: number;
 
-  constructor(id: string, position: Position, species: string = "spider") {
-    super(id, EntityType.CARNIVORE, position, 120);
+  constructor(id: string, position: Position, species: string = "rat") {
+    super(id, EntityType.CARNIVORE, position, 100);
     this.species = species;
-    this.speed = 2.5; // Increased speed for movement
+    this.speed = 2.5; // Rats are fast and agile
     this.hunger = 0;
-    this.maxHunger = 80;
-    this.attackPower = 20;
-    this.reproductionRate = 0.003; // Much lower reproduction rate
+    this.maxHunger = 60;
+    this.attackPower = 25;
+    this.reproductionRate = 0.0002; // Adjusted for 30 FPS (0.006/30)
   }
 
   update(deltaTime: number): void {
@@ -287,18 +275,6 @@ export class Carnivore extends Entity implements ICarnivore {
 
       if (this.hunger > this.maxHunger) {
         this.health -= deltaTime * 0.3;
-      }
-
-      // Move around randomly
-      if (Math.random() < 0.15 * deltaTime) {
-        const moveX = (Math.random() - 0.5) * this.speed * 10;
-        const moveY = (Math.random() - 0.5) * this.speed * 10;
-        this.position.x += moveX;
-        this.position.y += moveY;
-
-        // Keep within world bounds
-        this.position.x = Math.max(50, Math.min(2950, this.position.x));
-        this.position.y = Math.max(50, Math.min(2950, this.position.y));
       }
 
       // Reproduce when well-fed (much less frequently)

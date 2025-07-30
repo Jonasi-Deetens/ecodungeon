@@ -21,6 +21,7 @@ import {
   GameMessage,
   GameAction,
 } from "../types/gameTypes";
+import { CreatureAIFactory } from "../controllers/CreatureAI";
 
 // Game state structure
 const initialState: GameState = {
@@ -267,26 +268,26 @@ export function GameProvider({ children }: GameProviderProps) {
       entities.push(plant);
     }
 
-    // Add herbivores scattered across the world
-    for (let i = 0; i < 8; i++) {
+    // Add herbivores (rabbits) scattered across the world
+    for (let i = 0; i < 12; i++) {
       const x = Math.random() * 3000;
       const y = Math.random() * 3000;
       const herbivore = new Herbivore(
         `herbivore_${i}`,
         new Position(x, y),
-        "rat"
+        "rabbit"
       );
       entities.push(herbivore);
     }
 
-    // Add carnivores scattered across the world
-    for (let i = 0; i < 3; i++) {
+    // Add carnivores (rats) scattered across the world
+    for (let i = 0; i < 6; i++) {
       const x = Math.random() * 3000;
       const y = Math.random() * 3000;
       const carnivore = new Carnivore(
         `carnivore_${i}`,
         new Position(x, y),
-        "spider"
+        "rat"
       );
       entities.push(carnivore);
     }
@@ -450,9 +451,40 @@ export function GameProvider({ children }: GameProviderProps) {
     (deltaTime: number) => {
       if (state.isPaused) return;
 
-      // Update all entities
+      // Update all entities using AI system
       const updatedEntities = state.entities.map((entity) => {
+        // Update basic entity properties (health, energy, age, hunger)
         entity.update(deltaTime);
+
+        // Use AI for movement and behavior
+        if (
+          entity.state === EntityState.ALIVE &&
+          entity.type !== EntityType.PLAYER
+        ) {
+          const ai = CreatureAIFactory.createAI(
+            entity.type,
+            (entity as any).species
+          );
+
+          // Get nearby entities for AI decision making
+          const nearbyEntities = state.entities.filter(
+            (e) => e.id !== entity.id && e.state === EntityState.ALIVE
+          );
+
+          // Update position using AI
+          const newPosition = ai.update(
+            deltaTime,
+            entity.position,
+            nearbyEntities
+          );
+
+          // Keep entity within world bounds
+          newPosition.x = Math.max(50, Math.min(2950, newPosition.x));
+          newPosition.y = Math.max(50, Math.min(2950, newPosition.y));
+
+          entity.position = newPosition;
+        }
+
         return entity;
       });
 
@@ -613,11 +645,11 @@ export function GameProvider({ children }: GameProviderProps) {
     initializeGame("wanderer");
   }, [initializeGame]);
 
-  // Game loop
+  // Game loop - 30 FPS
   useEffect(() => {
     const gameLoop = setInterval(() => {
-      updateGame(1); // 1 second intervals
-    }, 1000);
+      updateGame(1 / 30); // 30 FPS = 1/30 second intervals
+    }, 1000 / 30); // 33.33ms intervals
 
     return () => clearInterval(gameLoop);
   }, [updateGame]);

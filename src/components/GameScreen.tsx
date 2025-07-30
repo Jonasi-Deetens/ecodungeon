@@ -113,6 +113,8 @@ const GameScreen: React.FC<GameScreenProps> = ({
         energy={entity.energy}
         maxEnergy={entity.maxEnergy}
         species={(entity as any).species || "moss"}
+        hunger={(entity as any).hunger}
+        maxHunger={(entity as any).maxHunger}
       />
     ));
   };

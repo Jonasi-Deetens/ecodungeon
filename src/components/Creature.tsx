@@ -12,6 +12,8 @@ interface CreatureProps {
   energy: number;
   maxEnergy: number;
   species: string;
+  hunger?: number;
+  maxHunger?: number;
 }
 
 const Creature: React.FC<CreatureProps> = ({
@@ -23,6 +25,8 @@ const Creature: React.FC<CreatureProps> = ({
   energy,
   maxEnergy,
   species,
+  hunger,
+  maxHunger,
 }) => {
   const getCreatureIcon = (type: EntityTypeValue, species: string) => {
     switch (type) {
@@ -30,25 +34,25 @@ const Creature: React.FC<CreatureProps> = ({
         return "🌱";
       case EntityType.HERBIVORE:
         switch (species) {
-          case "rat":
-            return "🐀";
           case "rabbit":
             return "🐰";
           case "deer":
             return "🦌";
+          case "mouse":
+            return "🐁";
           default:
-            return "🐀";
+            return "🐰";
         }
       case EntityType.CARNIVORE:
         switch (species) {
-          case "spider":
-            return "🕷️";
+          case "rat":
+            return "🐀";
           case "wolf":
             return "🐺";
           case "snake":
             return "🐍";
           default:
-            return "🕷️";
+            return "🐀";
         }
       default:
         return "❓";
@@ -61,25 +65,25 @@ const Creature: React.FC<CreatureProps> = ({
         return "#4ade80"; // Green
       case EntityType.HERBIVORE:
         switch (species) {
-          case "rat":
-            return "#fbbf24"; // Yellow
           case "rabbit":
             return "#f3f4f6"; // Light gray
           case "deer":
             return "#d97706"; // Orange
+          case "mouse":
+            return "#fbbf24"; // Yellow
           default:
-            return "#fbbf24";
+            return "#f3f4f6";
         }
       case EntityType.CARNIVORE:
         switch (species) {
-          case "spider":
-            return "#ef4444"; // Red
-          case "wolf":
+          case "rat":
             return "#6b7280"; // Gray
+          case "wolf":
+            return "#374151"; // Dark gray
           case "snake":
             return "#059669"; // Green
           default:
-            return "#ef4444";
+            return "#6b7280";
         }
       default:
         return "#94a3b8";
@@ -135,8 +139,6 @@ const Creature: React.FC<CreatureProps> = ({
           top: screenY,
           width: size,
           height: size,
-          borderRadius: size / 2,
-          backgroundColor: getCreatureColor(type, species),
         },
       ]}
     >
@@ -159,6 +161,24 @@ const Creature: React.FC<CreatureProps> = ({
           />
         </View>
       )}
+
+      {/* Hunger bar for herbivores and carnivores */}
+      {(type === EntityType.HERBIVORE || type === EntityType.CARNIVORE) &&
+        hunger !== undefined &&
+        maxHunger !== undefined && (
+          <View style={styles.hungerBar}>
+            <View
+              style={[
+                styles.hungerFill,
+                {
+                  width: `${(hunger / maxHunger) * 100}%`,
+                  backgroundColor:
+                    hunger > maxHunger * 0.7 ? "#ef4444" : "#fbbf24",
+                },
+              ]}
+            />
+          </View>
+        )}
     </View>
   );
 };
@@ -188,6 +208,20 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   healthFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  hungerBar: {
+    position: "absolute",
+    bottom: -9,
+    left: 2,
+    right: 2,
+    height: 3,
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  hungerFill: {
     height: "100%",
     borderRadius: 2,
   },
