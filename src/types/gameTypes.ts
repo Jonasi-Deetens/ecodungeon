@@ -66,6 +66,11 @@ export class Position {
   manhattanDistance(other: Position): number {
     return Math.abs(this.x - other.x) + Math.abs(this.y - other.y);
   }
+
+  // Clone the position
+  clone(): Position {
+    return new Position(this.x, this.y);
+  }
 }
 
 // Base entity interface
@@ -79,6 +84,7 @@ export interface IEntity {
   age: number;
   energy: number;
   maxEnergy: number;
+  weight: number; // Weight in kg - affects hunger and food value
   roomId: string; // Which room this entity belongs to
   update(deltaTime: number): void;
   canReproduce(): boolean;
@@ -95,6 +101,7 @@ export abstract class Entity implements IEntity {
   public age: number;
   public energy: number;
   public maxEnergy: number;
+  public weight: number;
   public roomId: string;
 
   constructor(
@@ -102,6 +109,7 @@ export abstract class Entity implements IEntity {
     type: EntityTypeValue,
     position: Position,
     health: number = 100,
+    weight: number = 1.0,
     roomId: string = ""
   ) {
     this.id = id;
@@ -113,6 +121,7 @@ export abstract class Entity implements IEntity {
     this.age = 0;
     this.energy = 100;
     this.maxEnergy = 100;
+    this.weight = weight;
     this.roomId = roomId;
   }
 
@@ -161,12 +170,59 @@ export class Plant extends Entity implements IPlant {
     species: string = "moss",
     roomId: string = ""
   ) {
-    super(id, EntityType.PLANT, position, 50, roomId);
+    super(id, EntityType.PLANT, position, 50, 0.1, roomId);
     this.species = species;
     this.growthRate = 0.05; // Reduced growth rate
     this.reproductionRate = 0.0003; // Adjusted for 30 FPS (0.01/30)
     this.oxygenProduction = 1;
     this.foodValue = 10;
+
+    // Set species-specific weight and food value
+    switch (species) {
+      case "moss":
+        this.weight = 0.05;
+        this.foodValue = 8;
+        break;
+      case "fern":
+        this.weight = 0.2;
+        this.foodValue = 12;
+        break;
+      case "mushroom":
+        this.weight = 0.1;
+        this.foodValue = 15;
+        break;
+      case "flower":
+        this.weight = 0.15;
+        this.foodValue = 10;
+        break;
+      case "cactus":
+        this.weight = 0.3;
+        this.foodValue = 20;
+        break;
+      case "desert_flower":
+        this.weight = 0.1;
+        this.foodValue = 8;
+        break;
+      case "dry_grass":
+        this.weight = 0.05;
+        this.foodValue = 6;
+        break;
+      case "mutated_moss":
+        this.weight = 0.2;
+        this.foodValue = 25;
+        break;
+      case "glowing_fungus":
+        this.weight = 0.3;
+        this.foodValue = 30;
+        break;
+      case "toxic_plant":
+        this.weight = 0.4;
+        this.foodValue = 35;
+        break;
+      default:
+        this.weight = 0.1;
+        this.foodValue = 10;
+    }
   }
 
   update(deltaTime: number): void {
@@ -215,13 +271,54 @@ export class Herbivore extends Entity implements IHerbivore {
     species: string = "rabbit",
     roomId: string = ""
   ) {
-    super(id, EntityType.HERBIVORE, position, 60, roomId);
+    super(id, EntityType.HERBIVORE, position, 60, 2.0, roomId);
     this.species = species;
     this.speed = 3; // Fast for escaping predators
     this.hunger = 0;
-    this.maxHunger = 80;
+    this.maxHunger = 80; // Will be updated based on weight
     this.reproductionRate = 0.00027; // Adjusted for 30 FPS (0.008/30)
     this.foodValue = 20;
+
+    // Set species-specific stats with different speeds and weights
+    switch (species) {
+      case "rabbit":
+        this.speed = 3.5; // Fast and agile
+        this.maxHealth = 60;
+        this.health = 60;
+        this.weight = 2.5; // Light
+        this.foodValue = 25;
+        break;
+      case "deer":
+        this.speed = 2.8; // Moderate speed, good stamina
+        this.maxHealth = 120;
+        this.health = 120;
+        this.weight = 80.0; // Heavy
+        this.foodValue = 50;
+        break;
+      case "mouse":
+        this.speed = 4.2; // Very fast, small target
+        this.maxHealth = 40;
+        this.health = 40;
+        this.weight = 0.03; // Very light
+        this.foodValue = 15;
+        break;
+      case "turtle":
+        this.speed = 1.2; // Slow but tough
+        this.maxHealth = 150;
+        this.health = 150;
+        this.weight = 15.0; // Medium weight
+        this.foodValue = 35;
+        break;
+      default:
+        this.speed = 3.0;
+        this.maxHealth = 60;
+        this.health = 60;
+        this.weight = 2.0;
+        this.foodValue = 20;
+    }
+
+    // Set max hunger based on weight (heavier creatures need more food)
+    this.maxHunger = this.weight * 40; // 40 hunger per kg of body weight
   }
 
   update(deltaTime: number): void {
@@ -246,8 +343,33 @@ export class Herbivore extends Entity implements IHerbivore {
   }
 
   eat(food: IPlant): void {
-    this.hunger = Math.max(0, this.hunger - food.foodValue);
-    this.health = Math.min(this.maxHealth, this.health + food.foodValue * 0.5);
+    // Hunger satisfaction is based on the weight of the plant consumed
+    // Different herbivores have different digestive efficiency
+    const plantWeight = food.weight;
+    let hungerSatisfaction = plantWeight * 20; // Base: 20 hunger per kg of plant
+
+    switch (this.species) {
+      case "rabbit":
+        hungerSatisfaction = plantWeight * 22; // Rabbits are efficient grazers
+        break;
+      case "deer":
+        hungerSatisfaction = plantWeight * 18; // Deer need more food per kg
+        break;
+      case "mouse":
+        hungerSatisfaction = plantWeight * 25; // Mice are very efficient
+        break;
+      case "turtle":
+        hungerSatisfaction = plantWeight * 15; // Turtles are slow metabolizers
+        break;
+      default:
+        hungerSatisfaction = plantWeight * 20;
+    }
+
+    this.hunger = Math.max(0, this.hunger - hungerSatisfaction);
+    this.health = Math.min(
+      this.maxHealth,
+      this.health + hungerSatisfaction * 0.5
+    );
   }
 }
 
@@ -277,13 +399,54 @@ export class Carnivore extends Entity implements ICarnivore {
     species: string = "rat",
     roomId: string = ""
   ) {
-    super(id, EntityType.CARNIVORE, position, 100, roomId);
+    super(id, EntityType.CARNIVORE, position, 100, 5.0, roomId);
     this.species = species;
     this.speed = 2.5; // Rats are fast and agile
     this.hunger = 0;
-    this.maxHunger = 60;
+    this.maxHunger = 60; // Will be updated based on weight
     this.attackPower = 25;
     this.reproductionRate = 0.0002; // Adjusted for 30 FPS (0.006/30)
+
+    // Set species-specific stats with different speeds and weights
+    switch (species) {
+      case "rat":
+        this.speed = 3.2; // Fast and agile
+        this.maxHealth = 80;
+        this.health = 80;
+        this.weight = 0.3; // Very light
+        this.attackPower = 20;
+        break;
+      case "wolf":
+        this.speed = 3.8; // Very fast, pack hunter
+        this.maxHealth = 120;
+        this.health = 120;
+        this.weight = 40.0; // Medium weight
+        this.attackPower = 35;
+        break;
+      case "snake":
+        this.speed = 2.0; // Slow but deadly
+        this.maxHealth = 60;
+        this.health = 60;
+        this.weight = 2.0; // Light
+        this.attackPower = 40;
+        break;
+      case "bear":
+        this.speed = 1.8; // Slow but powerful
+        this.maxHealth = 200;
+        this.health = 200;
+        this.weight = 300.0; // Very heavy
+        this.attackPower = 50;
+        break;
+      default:
+        this.speed = 2.5;
+        this.maxHealth = 100;
+        this.health = 100;
+        this.weight = 5.0;
+        this.attackPower = 25;
+    }
+
+    // Set max hunger based on weight (heavier predators need more food)
+    this.maxHunger = this.weight * 30; // 30 hunger per kg of body weight
   }
 
   update(deltaTime: number): void {
@@ -309,12 +472,48 @@ export class Carnivore extends Entity implements ICarnivore {
 
   hunt(prey: IHerbivore): void {
     if (prey.state === EntityState.ALIVE) {
+      // Deal damage to prey
       prey.health -= this.attackPower;
-      this.hunger = Math.max(0, this.hunger - prey.foodValue);
-      this.health = Math.min(
-        this.maxHealth,
-        this.health + prey.foodValue * 0.3
-      );
+
+      // Check if prey dies from damage
+      if (prey.health <= 0) {
+        prey.state = EntityState.DEAD;
+        prey.health = 0;
+
+        // Only gain hunger satisfaction when prey is actually killed
+        // Hunger satisfaction is based on the weight of the prey consumed
+        // Different predators have different metabolic efficiency
+        const preyWeight = prey.weight;
+        let hungerSatisfaction = preyWeight * 10; // Base: 10 hunger per kg of prey
+
+        switch (this.species) {
+          case "wolf":
+            hungerSatisfaction = preyWeight * 12; // Wolves are efficient hunters
+            break;
+          case "bear":
+            hungerSatisfaction = preyWeight * 8; // Bears need more food per kg
+            break;
+          case "snake":
+            hungerSatisfaction = preyWeight * 15; // Snakes are very efficient
+            break;
+          case "rat":
+            hungerSatisfaction = preyWeight * 11; // Rats are somewhat efficient
+            break;
+          default:
+            hungerSatisfaction = preyWeight * 10;
+        }
+
+        // Reduce hunger and gain health
+        this.hunger = Math.max(0, this.hunger - hungerSatisfaction);
+        this.health = Math.min(
+          this.maxHealth,
+          this.health + hungerSatisfaction * 0.3
+        );
+      } else {
+        // Prey is injured but alive - set to fleeing state
+        // No hunger satisfaction for failed hunts
+        prey.state = EntityState.FLEEING;
+      }
     }
   }
 }
@@ -362,7 +561,7 @@ export class Player extends Entity implements IPlayer {
     characterClass: string = "wanderer",
     roomId: string = ""
   ) {
-    super(id, EntityType.PLAYER, position, 200, roomId);
+    super(id, EntityType.PLAYER, position, 200, 70.0, roomId);
     this.inventory = [];
     this.ecoImpact = 0; // Positive = good for ecosystem, Negative = harmful
     this.observationSkill = 1;

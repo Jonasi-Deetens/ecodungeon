@@ -191,16 +191,22 @@ export class DungeonGenerator {
         });
       }
 
-      return {
+      // Create the room with proper positioning
+      const room: Room = {
         id: dungeonRoom.id,
         x: dungeonRoom.x,
         y: dungeonRoom.y,
         width: dungeonRoom.width,
         height: dungeonRoom.height,
         biome: dungeonRoom.biome,
-        entities: dungeonRoom.roomData.entities,
+        entities: [], // Start with empty entities
         teleporters,
       };
+
+      // Use RoomController to properly populate the room with distributed entities
+      this.roomController.populateRoom(room);
+
+      return room;
     });
   }
 }

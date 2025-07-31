@@ -71,8 +71,8 @@ export class RoomController {
       },
       creatureTypes: {
         plants: ["moss", "fern", "mushroom", "flower"],
-        herbivores: ["rabbit", "deer", "squirrel"],
-        carnivores: ["fox", "owl"],
+        herbivores: ["rabbit", "deer", "mouse", "turtle"],
+        carnivores: ["rat", "wolf", "snake"],
       },
       ecosystemSettings: {
         initialHealth: EcosystemHealth.GOOD,
@@ -101,8 +101,8 @@ export class RoomController {
       },
       creatureTypes: {
         plants: ["cactus", "desert_flower", "dry_grass"],
-        herbivores: ["lizard", "snake", "scorpion"],
-        carnivores: ["vulture", "coyote"],
+        herbivores: ["deer", "mouse", "turtle"], // Use existing species with different speeds
+        carnivores: ["wolf", "snake", "rat"], // Use existing species with different speeds
       },
       ecosystemSettings: {
         initialHealth: EcosystemHealth.FAIR,
@@ -131,8 +131,8 @@ export class RoomController {
       },
       creatureTypes: {
         plants: ["mutated_moss", "glowing_fungus", "toxic_plant"],
-        herbivores: ["mutated_rat", "glowing_worm"],
-        carnivores: ["mutated_spider", "toxic_slime"],
+        herbivores: ["mouse", "turtle"], // Fast and tough creatures
+        carnivores: ["wolf", "bear"], // Powerful pack hunters
       },
       ecosystemSettings: {
         initialHealth: EcosystemHealth.CRITICAL,
@@ -180,6 +180,10 @@ export class RoomController {
 
   // Populate a room with zone-specific creatures
   public populateRoom(room: Room): void {
+    console.log(
+      `🎯 Populating room ${room.id} (${room.biome}) at (${room.x}, ${room.y}) size ${room.width}x${room.height}`
+    );
+
     const config = this.getRoomConfig(room.biome);
     if (!config) {
       console.warn(`No configuration found for biome: ${room.biome}`);
@@ -188,8 +192,63 @@ export class RoomController {
 
     const entities: IEntity[] = [];
 
+    // Helper function to get distributed position within room bounds
+    const getDistributedPosition = (
+      index: number,
+      total: number,
+      entityType: string
+    ): Position => {
+      const padding = 100; // Keep creatures away from walls
+      const availableWidth = room.width - padding * 2;
+      const availableHeight = room.height - padding * 2;
+
+      // Use a more random distribution with some spacing
+      const minSpacing =
+        Math.min(availableWidth, availableHeight) / Math.sqrt(total);
+
+      // Create a semi-random position with minimum spacing
+      let attempts = 0;
+      let x, y;
+
+      do {
+        x = room.x + padding + Math.random() * availableWidth;
+        y = room.y + padding + Math.random() * availableHeight;
+        attempts++;
+
+        // Check if this position is too close to existing entities
+        let tooClose = false;
+        for (const entity of entities) {
+          const distance = Math.sqrt(
+            Math.pow(x - entity.position.x, 2) +
+              Math.pow(y - entity.position.y, 2)
+          );
+          if (distance < minSpacing) {
+            tooClose = true;
+            break;
+          }
+        }
+
+        if (!tooClose || attempts > 50) break; // Give up after 50 attempts
+      } while (true);
+
+      console.log(
+        `Spawning ${entityType} at index ${index}: room(${room.x},${room.y}) size(${room.width}x${room.height}) -> world(${x},${y})`
+      );
+
+      return new Position(x, y);
+    };
+
+    // Calculate total entities for proper distribution
+    const plantCount = 5 + Math.floor(Math.random() * 10);
+    const herbivoreCount = 3 + Math.floor(Math.random() * 5);
+    const carnivoreCount = Math.max(
+      1,
+      Math.floor(config.ecosystemSettings.hostilityLevel / 2)
+    );
+    const totalEntities = plantCount + herbivoreCount + carnivoreCount;
+
     // Add plants based on biome
-    const plantCount = 5 + Math.random() * 10;
+    let entityIndex = 0;
     for (let i = 0; i < plantCount; i++) {
       const plantType =
         config.creatureTypes.plants[
@@ -197,18 +256,15 @@ export class RoomController {
         ];
       const plant = new Plant(
         `plant_${room.id}_${i}`,
-        new Position(
-          room.x + Math.random() * room.width,
-          room.y + Math.random() * room.height
-        ),
+        getDistributedPosition(entityIndex, totalEntities, "plant"),
         plantType,
         room.id
       );
       entities.push(plant);
+      entityIndex++;
     }
 
     // Add herbivores based on biome and difficulty
-    const herbivoreCount = 3 + Math.random() * 5;
     for (let i = 0; i < herbivoreCount; i++) {
       const herbivoreType =
         config.creatureTypes.herbivores[
@@ -216,21 +272,15 @@ export class RoomController {
         ];
       const herbivore = new Herbivore(
         `herbivore_${room.id}_${i}`,
-        new Position(
-          room.x + Math.random() * room.width,
-          room.y + Math.random() * room.height
-        ),
+        getDistributedPosition(entityIndex, totalEntities, "herbivore"),
         herbivoreType,
         room.id
       );
       entities.push(herbivore);
+      entityIndex++;
     }
 
     // Add carnivores based on hostility level
-    const carnivoreCount = Math.max(
-      1,
-      Math.floor(config.ecosystemSettings.hostilityLevel / 2)
-    );
     for (let i = 0; i < carnivoreCount; i++) {
       const carnivoreType =
         config.creatureTypes.carnivores[
@@ -238,17 +288,18 @@ export class RoomController {
         ];
       const carnivore = new Carnivore(
         `carnivore_${room.id}_${i}`,
-        new Position(
-          room.x + Math.random() * room.width,
-          room.y + Math.random() * room.height
-        ),
+        getDistributedPosition(entityIndex, totalEntities, "carnivore"),
         carnivoreType,
         room.id
       );
       entities.push(carnivore);
+      entityIndex++;
     }
 
     room.entities = entities;
+    console.log(
+      `✅ Room ${room.id} populated with ${entities.length} entities`
+    );
   }
 
   // Update room ecosystem based on its configuration

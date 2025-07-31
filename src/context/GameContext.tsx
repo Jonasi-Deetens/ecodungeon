@@ -361,7 +361,7 @@ export function GameProvider({ children }: GameProviderProps) {
     (entities: IEntity[]): IEntity[] => {
       const newEntities = [...entities];
 
-      // Handle carnivore hunting
+      // Handle carnivore hunting - only when hungry
       entities.forEach((entity) => {
         if (
           entity.type === EntityType.CARNIVORE &&
@@ -372,25 +372,38 @@ export function GameProvider({ children }: GameProviderProps) {
             (e) =>
               e.type === EntityType.HERBIVORE &&
               e.state === EntityState.ALIVE &&
-              entity.position.distanceTo(e.position) <= 100
+              entity.position.distanceTo(e.position) <= 50 // Reduced range for more aggressive hunting
           ) as Herbivore[];
 
-          if (
-            nearbyHerbivores.length > 0 &&
-            carnivore.hunger > carnivore.maxHunger * 0.5
-          ) {
-            const target =
-              nearbyHerbivores[
-                Math.floor(Math.random() * nearbyHerbivores.length)
-              ];
-            if (target) {
-              carnivore.hunt(target);
+          // Only hunt when significantly hungry (more realistic behavior)
+          const hungerThreshold = carnivore.maxHunger * 0.7; // 70% hungry
+          const isHungry = carnivore.hunger > hungerThreshold;
+
+          if (nearbyHerbivores.length > 0 && isHungry) {
+            // Choose target based on distance and vulnerability
+            let bestTarget = nearbyHerbivores[0];
+            let bestScore = 0;
+
+            for (const prey of nearbyHerbivores) {
+              const distance = entity.position.distanceTo(prey.position);
+              const distanceScore = 1 - distance / 50; // Closer is better
+              const healthScore = 1 - prey.health / prey.maxHealth; // Weaker is better
+              const totalScore = distanceScore * 0.6 + healthScore * 0.4;
+
+              if (totalScore > bestScore) {
+                bestScore = totalScore;
+                bestTarget = prey;
+              }
+            }
+
+            if (bestTarget) {
+              carnivore.hunt(bestTarget);
             }
           }
         }
       });
 
-      // Handle herbivore eating
+      // Handle herbivore eating - only when hungry
       entities.forEach((entity) => {
         if (
           entity.type === EntityType.HERBIVORE &&
@@ -404,16 +417,29 @@ export function GameProvider({ children }: GameProviderProps) {
               entity.position.distanceTo(e.position) <= 50
           ) as Plant[];
 
-          if (
-            nearbyPlants.length > 0 &&
-            herbivore.hunger > herbivore.maxHunger * 0.6
-          ) {
-            const target =
-              nearbyPlants[Math.floor(Math.random() * nearbyPlants.length)];
-            if (target) {
-              herbivore.eat(target);
+          // Only eat when significantly hungry (more realistic behavior)
+          const hungerThreshold = herbivore.maxHunger * 0.6; // 60% hungry
+          const isHungry = herbivore.hunger > hungerThreshold;
+
+          if (nearbyPlants.length > 0 && isHungry) {
+            // Choose the closest plant to eat
+            let closestPlant: Plant | undefined = nearbyPlants[0];
+            let closestDistance = closestPlant
+              ? entity.position.distanceTo(closestPlant.position)
+              : Infinity;
+
+            for (const plant of nearbyPlants) {
+              const distance = entity.position.distanceTo(plant.position);
+              if (distance < closestDistance) {
+                closestDistance = distance;
+                closestPlant = plant;
+              }
+            }
+
+            if (closestPlant) {
+              herbivore.eat(closestPlant);
               // Remove the eaten plant from the game
-              target.state = EntityState.DEAD;
+              closestPlant.state = EntityState.DEAD;
             }
           }
         }
@@ -522,12 +548,14 @@ export function GameProvider({ children }: GameProviderProps) {
               }
             : undefined;
 
-          // Update position using AI with room bounds
+          // Update position using AI with room bounds, biome, and difficulty
           const newPosition = ai.update(
             deltaTime,
             entity.position,
             nearbyEntities,
-            roomBounds
+            roomBounds,
+            entityRoom?.biome,
+            entityRoom ? 1 : 0 // Default difficulty
           );
 
           // Keep entity within its own room bounds
