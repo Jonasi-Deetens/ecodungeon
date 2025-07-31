@@ -41,20 +41,27 @@ const GameScreen: React.FC<GameScreenProps> = ({
   const [playerPosition, setPlayerPosition] = useState(new Position(0, 0));
   const [cameraPosition, setCameraPosition] = useState(new Position(0, 0));
   const [showRanges, setShowRanges] = useState(false);
-  const [teleporterStates, setTeleporterStates] = useState<{[key: string]: boolean}>({});
+  const [showSkillAllocation, setShowSkillAllocation] = useState(false);
+  const [teleporterStates, setTeleporterStates] = useState<{
+    [key: string]: boolean;
+  }>({});
 
   // Update camera to follow player
   const updateCameraPosition = useCallback(
     (pos: Position) => {
       const newCameraX = pos.x - screenWidth / 2;
       const newCameraY = pos.y - screenHeight / 2;
-      
+
       // Calculate bounds based on actual room positions, not fixed world bounds
       const minX = 0;
-      const maxX = Math.max(...game.rooms.map(room => room.x + room.width)) - screenWidth;
+      const maxX =
+        Math.max(...game.rooms.map((room) => room.x + room.width)) -
+        screenWidth;
       const minY = 0;
-      const maxY = Math.max(...game.rooms.map(room => room.y + room.height)) - screenHeight;
-      
+      const maxY =
+        Math.max(...game.rooms.map((room) => room.y + room.height)) -
+        screenHeight;
+
       setCameraPosition(
         new Position(
           Math.max(minX, Math.min(newCameraX, maxX)),
@@ -66,35 +73,46 @@ const GameScreen: React.FC<GameScreenProps> = ({
   );
 
   // Handle teleporter activation
-  const handleTeleporterActivation = useCallback((teleporterId: string, activated: boolean) => {
-    console.log(`🔧 Activating teleporter ${teleporterId}: ${activated}`);
-    
-    setTeleporterStates(prev => {
-      const newStates = { ...prev, [teleporterId]: activated };
-      
-      // Find the linked teleporter and activate it too
-      const currentRoom = game.rooms.find(room => room.id === game.currentRoomId);
-      if (currentRoom) {
-        const teleporter = currentRoom.teleporters.find(t => t.id === teleporterId);
-        if (teleporter) {
-          // Find the linked teleporter in the connected room
-          const connectedRoom = game.rooms.find(room => room.id === teleporter.connectedRoomId);
-          if (connectedRoom) {
-            const linkedTeleporter = connectedRoom.teleporters.find(
-              t => t.connectedRoomId === currentRoom.id
+  const handleTeleporterActivation = useCallback(
+    (teleporterId: string, activated: boolean) => {
+      console.log(`🔧 Activating teleporter ${teleporterId}: ${activated}`);
+
+      setTeleporterStates((prev) => {
+        const newStates = { ...prev, [teleporterId]: activated };
+
+        // Find the linked teleporter and activate it too
+        const currentRoom = game.rooms.find(
+          (room) => room.id === game.currentRoomId
+        );
+        if (currentRoom) {
+          const teleporter = currentRoom.teleporters.find(
+            (t) => t.id === teleporterId
+          );
+          if (teleporter) {
+            // Find the linked teleporter in the connected room
+            const connectedRoom = game.rooms.find(
+              (room) => room.id === teleporter.connectedRoomId
             );
-            if (linkedTeleporter) {
-              newStates[linkedTeleporter.id] = activated;
-              console.log(`🔗 Also activating linked teleporter ${linkedTeleporter.id}: ${activated}`);
+            if (connectedRoom) {
+              const linkedTeleporter = connectedRoom.teleporters.find(
+                (t) => t.connectedRoomId === currentRoom.id
+              );
+              if (linkedTeleporter) {
+                newStates[linkedTeleporter.id] = activated;
+                console.log(
+                  `🔗 Also activating linked teleporter ${linkedTeleporter.id}: ${activated}`
+                );
+              }
             }
           }
         }
-      }
-      
-      console.log(`📊 New teleporter states:`, newStates);
-      return newStates;
-    });
-  }, [game.rooms, game.currentRoomId]);
+
+        console.log(`📊 New teleporter states:`, newStates);
+        return newStates;
+      });
+    },
+    [game.rooms, game.currentRoomId]
+  );
 
   // Memoized position change handler
   const handlePositionChange = useCallback(
@@ -198,47 +216,55 @@ const GameScreen: React.FC<GameScreenProps> = ({
         id: teleporter.id,
         direction: teleporter.direction,
         connectedRoomId: teleporter.connectedRoomId,
-        currentRoomId: game.currentRoomId
+        currentRoomId: game.currentRoomId,
       });
-      
+
       // Teleport player to the connected room
       const targetRoom = game.rooms.find(
         (r) => r.id === teleporter.connectedRoomId
       );
-      
-      console.log(`🎯 Target room found:`, targetRoom ? targetRoom.id : 'null');
+
+      console.log(`🎯 Target room found:`, targetRoom ? targetRoom.id : "null");
       if (targetRoom) {
         console.log(`🎯 Room details:`, {
           roomId: targetRoom.id,
           roomPosition: { x: targetRoom.x, y: targetRoom.y },
           roomSize: { width: targetRoom.width, height: targetRoom.height },
-          allTeleporters: targetRoom.teleporters.map(t => ({
+          allTeleporters: targetRoom.teleporters.map((t) => ({
             id: t.id,
             direction: t.direction,
             position: { x: t.x, y: t.y },
-            connectedRoomId: t.connectedRoomId
-          }))
+            connectedRoomId: t.connectedRoomId,
+          })),
         });
-        
+
         // Find the specific target teleporter
         const targetTeleporter = targetRoom.teleporters.find(
           (t) => t.connectedRoomId === game.currentRoomId
         );
 
-        console.log(`🎯 Looking for teleporter connected to:`, game.currentRoomId);
-        console.log(`🎯 Target teleporter found:`, targetTeleporter ? {
-          id: targetTeleporter.id,
-          direction: targetTeleporter.direction,
-          position: { x: targetTeleporter.x, y: targetTeleporter.y },
-          connectedRoomId: targetTeleporter.connectedRoomId
-        } : 'null');
+        console.log(
+          `🎯 Looking for teleporter connected to:`,
+          game.currentRoomId
+        );
+        console.log(
+          `🎯 Target teleporter found:`,
+          targetTeleporter
+            ? {
+                id: targetTeleporter.id,
+                direction: targetTeleporter.direction,
+                position: { x: targetTeleporter.x, y: targetTeleporter.y },
+                connectedRoomId: targetTeleporter.connectedRoomId,
+              }
+            : "null"
+        );
 
         if (targetTeleporter) {
           // Position player near the target teleporter but not exactly on it
           // Add offset based on teleporter direction to avoid immediate re-teleportation
           let offsetX = 0;
           let offsetY = 0;
-          
+
           switch (targetTeleporter.direction) {
             case "north":
               offsetY = 200; // Move player 200px south of the teleporter
@@ -253,24 +279,26 @@ const GameScreen: React.FC<GameScreenProps> = ({
               offsetX = 200; // Move player 200px east of the teleporter
               break;
           }
-          
+
           // Teleporter coordinates appear to be room-relative, so add room position
-          const teleporterCenterX = targetRoom.x + targetTeleporter.x + targetTeleporter.width / 2;
-          const teleporterCenterY = targetRoom.y + targetTeleporter.y + targetTeleporter.height / 2;
-          
+          const teleporterCenterX =
+            targetRoom.x + targetTeleporter.x + targetTeleporter.width / 2;
+          const teleporterCenterY =
+            targetRoom.y + targetTeleporter.y + targetTeleporter.height / 2;
+
           const newX = teleporterCenterX + offsetX;
           const newY = teleporterCenterY + offsetY;
           const newPosition = new Position(newX, newY);
 
-          console.log(`🎯 Setting new position:`, { 
-            x: newX, 
+          console.log(`🎯 Setting new position:`, {
+            x: newX,
             y: newY,
             teleporterCenter: { x: teleporterCenterX, y: teleporterCenterY },
             offset: { x: offsetX, y: offsetY },
             roomPosition: { x: targetRoom.x, y: targetRoom.y },
-            teleporterRaw: { x: targetTeleporter.x, y: targetTeleporter.y }
+            teleporterRaw: { x: targetTeleporter.x, y: targetTeleporter.y },
           });
-          
+
           setPlayerPosition(newPosition);
           updateCameraPosition(newPosition);
           game.changeRoom(teleporter.connectedRoomId);
@@ -279,13 +307,23 @@ const GameScreen: React.FC<GameScreenProps> = ({
             game.player.position = newPosition;
           }
 
-          console.log(`✨ Teleported to room ${teleporter.connectedRoomId} at position (${newX.toFixed(0)}, ${newY.toFixed(0)})`);
+          console.log(
+            `✨ Teleported to room ${
+              teleporter.connectedRoomId
+            } at position (${newX.toFixed(0)}, ${newY.toFixed(0)})`
+          );
           console.log(`🎯 Player position after teleport:`, {
-            gamePlayerPos: game.player ? { x: game.player.position.x, y: game.player.position.y } : 'null',
-            statePlayerPos: newPosition ? { x: newPosition.x, y: newPosition.y } : 'null'
+            gamePlayerPos: game.player
+              ? { x: game.player.position.x, y: game.player.position.y }
+              : "null",
+            statePlayerPos: newPosition
+              ? { x: newPosition.x, y: newPosition.y }
+              : "null",
           });
         } else {
-          console.log(`❌ Target teleporter not found in room ${targetRoom.id}`);
+          console.log(
+            `❌ Target teleporter not found in room ${targetRoom.id}`
+          );
         }
       } else {
         console.log(`❌ Target room not found: ${teleporter.connectedRoomId}`);
@@ -322,12 +360,14 @@ const GameScreen: React.FC<GameScreenProps> = ({
           })
           .map((room) => {
             // Calculate linked teleporters for this room
-            const linkedTeleporters: {[key: string]: any} = {};
-            room.teleporters.forEach(teleporter => {
-              const connectedRoom = game.rooms.find(r => r.id === teleporter.connectedRoomId);
+            const linkedTeleporters: { [key: string]: any } = {};
+            room.teleporters.forEach((teleporter) => {
+              const connectedRoom = game.rooms.find(
+                (r) => r.id === teleporter.connectedRoomId
+              );
               if (connectedRoom) {
                 const linkedTeleporter = connectedRoom.teleporters.find(
-                  t => t.connectedRoomId === room.id
+                  (t) => t.connectedRoomId === room.id
                 );
                 if (linkedTeleporter) {
                   linkedTeleporters[teleporter.id] = linkedTeleporter;
@@ -377,10 +417,22 @@ const GameScreen: React.FC<GameScreenProps> = ({
           </TouchableOpacity>
 
           <View style={styles.playerInfo}>
-            <Text style={styles.playerName}>{selectedCharacter}</Text>
+            <Text style={styles.playerName}>
+              Lv. {game.player?.level || 1} {selectedCharacter}
+            </Text>
             <Text style={styles.playerStats}>
               ❤️ {game.player?.health || 0} | ⚡ {game.player?.energy || 0}
             </Text>
+            {game.player && game.player.skillPoints > 0 && (
+              <TouchableOpacity
+                style={styles.skillPointsButton}
+                onPress={() => setShowSkillAllocation(true)}
+              >
+                <Text style={styles.skillPointsButtonText}>
+                  +{game.player.skillPoints}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.ecosystemInfo}>
@@ -392,6 +444,68 @@ const GameScreen: React.FC<GameScreenProps> = ({
             </Text>
           </View>
         </View>
+
+        {/* Skill Allocation Modal */}
+        {showSkillAllocation && game.player && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.skillAllocationModal}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Allocate Skill Points</Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setShowSkillAllocation(false)}
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalSubtitle}>
+                You have {game.player?.skillPoints || 0} skill point
+                {(game.player?.skillPoints || 0) > 1 ? "s" : ""} to allocate
+              </Text>
+
+              <View style={styles.skillOptions}>
+                <TouchableOpacity
+                  style={styles.skillOption}
+                  onPress={() => {
+                    game.allocateSkillPoint("observation");
+                    if ((game.player?.skillPoints || 0) <= 1) {
+                      setShowSkillAllocation(false);
+                    }
+                  }}
+                  disabled={(game.player?.skillPoints || 0) <= 0}
+                >
+                  <Text style={styles.skillOptionTitle}>👁️ Observation</Text>
+                  <Text style={styles.skillOptionLevel}>
+                    Level {game.player.observationSkill}
+                  </Text>
+                  <Text style={styles.skillOptionDesc}>
+                    Increases XP from observing
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.skillOption}
+                  onPress={() => {
+                    game.allocateSkillPoint("restoration");
+                    if ((game.player?.skillPoints || 0) <= 1) {
+                      setShowSkillAllocation(false);
+                    }
+                  }}
+                  disabled={(game.player?.skillPoints || 0) <= 0}
+                >
+                  <Text style={styles.skillOptionTitle}>✨ Restoration</Text>
+                  <Text style={styles.skillOptionLevel}>
+                    Level {game.player.restorationSkill}
+                  </Text>
+                  <Text style={styles.skillOptionDesc}>
+                    Increases XP from restoring
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Joystick */}
         <View style={styles.joystickContainer}>
@@ -606,6 +720,94 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#e2e8f0",
     textAlign: "center",
+  },
+  progressionContainer: {
+    position: "absolute",
+    top: 100,
+    left: 20,
+    right: 20,
+    zIndex: 10,
+  },
+  skillPointsButton: {
+    backgroundColor: "#4ade80",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 4,
+  },
+  skillPointsButtonText: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#0f172a",
+  },
+  modalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  skillAllocationModal: {
+    backgroundColor: "#1e293b",
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    borderWidth: 1,
+    borderColor: "#334155",
+    minWidth: 300,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#e2e8f0",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    color: "#94a3b8",
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#94a3b8",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  skillOptions: {
+    gap: 12,
+  },
+  skillOption: {
+    backgroundColor: "#334155",
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#475569",
+  },
+  skillOptionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#e2e8f0",
+    marginBottom: 4,
+  },
+  skillOptionLevel: {
+    fontSize: 14,
+    color: "#4ade80",
+    marginBottom: 4,
+  },
+  skillOptionDesc: {
+    fontSize: 12,
+    color: "#94a3b8",
   },
 });
 

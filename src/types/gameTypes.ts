@@ -326,6 +326,11 @@ export interface IPlayer extends IEntity {
   observationSkill: number;
   restorationSkill: number;
   characterClass: string;
+  // Progression system
+  experience: number;
+  level: number;
+  skillPoints: number;
+  experienceToNextLevel: number;
   move(newPosition: Position): void;
   gather(entity: IEntity): IEntity;
   attack(entity: IEntity): void;
@@ -333,6 +338,9 @@ export interface IPlayer extends IEntity {
   observe(): void;
   restore(area: Position): void;
   heal(): void;
+  gainExperience(amount: number): void;
+  levelUp(): void;
+  allocateSkillPoint(skill: "observation" | "restoration"): boolean;
 }
 
 // Player entity
@@ -342,6 +350,11 @@ export class Player extends Entity implements IPlayer {
   public observationSkill: number;
   public restorationSkill: number;
   public characterClass: string;
+  // Progression system
+  public experience: number;
+  public level: number;
+  public skillPoints: number;
+  public experienceToNextLevel: number;
 
   constructor(
     id: string,
@@ -355,6 +368,12 @@ export class Player extends Entity implements IPlayer {
     this.observationSkill = 1;
     this.restorationSkill = 1;
     this.characterClass = characterClass;
+
+    // Initialize progression system
+    this.experience = 0;
+    this.level = 1;
+    this.skillPoints = 0;
+    this.experienceToNextLevel = this.calculateExperienceToNextLevel();
 
     // Set character-specific stats
     this.setCharacterStats(characterClass);
@@ -406,12 +425,16 @@ export class Player extends Entity implements IPlayer {
     this.position = newPosition;
     // Movement has minimal impact
     this.ecoImpact += 0.1;
+    // Small XP gain for exploration
+    this.gainExperience(1);
   }
 
   gather(entity: IEntity): IEntity {
     this.inventory.push(entity);
     // Gathering has negative impact
     this.ecoImpact -= 2;
+    // XP gain for gathering
+    this.gainExperience(5);
     return entity;
   }
 
@@ -419,28 +442,83 @@ export class Player extends Entity implements IPlayer {
     entity.health -= 30;
     // Combat has significant negative impact
     this.ecoImpact -= 5;
+    // XP gain for combat
+    this.gainExperience(10);
   }
 
   plant(plantType: string, position: Position): Plant {
     // Planting has positive impact
     this.ecoImpact += 3;
+    // XP gain for positive actions
+    this.gainExperience(15);
     return new Plant(`plant_${Date.now()}`, position, plantType);
   }
 
   observe(): void {
     // Observation has minimal positive impact
     this.ecoImpact += 0.5;
+    // XP gain for observation (scaled by observation skill)
+    this.gainExperience(3 * this.observationSkill);
   }
 
   restore(area: Position): void {
     // Restoration has significant positive impact
     this.ecoImpact += 10;
+    // XP gain for restoration (scaled by restoration skill)
+    this.gainExperience(20 * this.restorationSkill);
   }
 
   heal(): void {
     // Heal the player
     this.health = Math.min(this.maxHealth, this.health + 20);
     this.energy = Math.min(this.maxEnergy, this.energy + 10);
+  }
+
+  // Progression system methods
+  private calculateExperienceToNextLevel(): number {
+    // Exponential experience curve: level^2 * 100
+    return this.level * this.level * 100;
+  }
+
+  gainExperience(amount: number): void {
+    this.experience += amount;
+
+    // Check if player should level up
+    while (this.experience >= this.experienceToNextLevel) {
+      this.levelUp();
+    }
+  }
+
+  levelUp(): void {
+    this.level++;
+    this.skillPoints += 2; // Gain 2 skill points per level
+    this.experienceToNextLevel = this.calculateExperienceToNextLevel();
+
+    // Increase base stats on level up
+    this.maxHealth += 10;
+    this.health = this.maxHealth; // Full heal on level up
+    this.maxEnergy += 5;
+    this.energy = this.maxEnergy; // Full energy on level up
+
+    // Note: Level up message will be handled by GameContext
+  }
+
+  allocateSkillPoint(skill: "observation" | "restoration"): boolean {
+    if (this.skillPoints <= 0) {
+      return false; // No skill points available
+    }
+
+    switch (skill) {
+      case "observation":
+        this.observationSkill++;
+        break;
+      case "restoration":
+        this.restorationSkill++;
+        break;
+    }
+
+    this.skillPoints--;
+    return true;
   }
 }
 

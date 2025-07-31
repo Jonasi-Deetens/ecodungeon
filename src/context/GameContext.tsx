@@ -263,6 +263,7 @@ interface GameContextType extends GameState {
   togglePause: () => void;
   resetGame: (characterClass?: string) => void;
   changeRoom: (newRoomId: string) => void;
+  allocateSkillPoint: (skill: "observation" | "restoration") => void;
 }
 
 // Create context
@@ -506,12 +507,14 @@ export function GameProvider({ children }: GameProviderProps) {
           const entityRoom = state.rooms.find(
             (room) => room.id === entity.roomId
           );
-          const roomBounds = entityRoom ? {
-            minX: entityRoom.x + 50,
-            maxX: entityRoom.x + entityRoom.width - 50,
-            minY: entityRoom.y + 50,
-            maxY: entityRoom.y + entityRoom.height - 50,
-          } : undefined;
+          const roomBounds = entityRoom
+            ? {
+                minX: entityRoom.x + 50,
+                maxX: entityRoom.x + entityRoom.width - 50,
+                minY: entityRoom.y + 50,
+                maxY: entityRoom.y + entityRoom.height - 50,
+              }
+            : undefined;
 
           // Update position using AI with room bounds
           const newPosition = ai.update(
@@ -576,7 +579,7 @@ export function GameProvider({ children }: GameProviderProps) {
       const currentRoom = state.rooms.find(
         (room) => room.id === state.currentRoomId
       );
-      
+
       if (currentRoom) {
         // Ensure position is within current room bounds
         newPosition.x = Math.max(
@@ -682,6 +685,9 @@ export function GameProvider({ children }: GameProviderProps) {
           break;
       }
 
+      // Check if player leveled up during this action
+      const previousLevel = state.player.level;
+
       dispatch({
         type: GameActions.PERFORM_ACTION,
         payload: {
@@ -690,6 +696,19 @@ export function GameProvider({ children }: GameProviderProps) {
           message: { text: message, timestamp: Date.now() },
         },
       });
+
+      // Add level up message if player leveled up
+      if (state.player.level > previousLevel) {
+        dispatch({
+          type: GameActions.ADD_MESSAGE,
+          payload: {
+            message: {
+              text: `🎉 LEVEL UP! You are now level ${state.player.level}! You gained 2 skill points!`,
+              timestamp: Date.now(),
+            },
+          },
+        });
+      }
     },
     [state.player, state.entities]
   );
@@ -720,6 +739,38 @@ export function GameProvider({ children }: GameProviderProps) {
     });
   }, []);
 
+  const allocateSkillPoint = useCallback(
+    (skill: "observation" | "restoration") => {
+      if (!state.player) return;
+
+      const success = state.player.allocateSkillPoint(skill);
+      if (success) {
+        dispatch({
+          type: GameActions.UPDATE_ENTITY,
+          payload: { entity: state.player },
+        });
+
+        // Add a message about the skill allocation
+        dispatch({
+          type: GameActions.ADD_MESSAGE,
+          payload: {
+            message: {
+              text: `🎯 ${
+                skill.charAt(0).toUpperCase() + skill.slice(1)
+              } skill increased to ${
+                skill === "observation"
+                  ? state.player.observationSkill
+                  : state.player.restorationSkill
+              }!`,
+              timestamp: Date.now(),
+            },
+          },
+        });
+      }
+    },
+    [state.player]
+  );
+
   // Initialize game on mount
   useEffect(() => {
     initializeGame("wanderer");
@@ -742,6 +793,7 @@ export function GameProvider({ children }: GameProviderProps) {
     togglePause,
     resetGame,
     changeRoom,
+    allocateSkillPoint,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
