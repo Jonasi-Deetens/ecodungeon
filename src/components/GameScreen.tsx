@@ -75,8 +75,6 @@ const GameScreen: React.FC<GameScreenProps> = ({
   // Handle teleporter activation
   const handleTeleporterActivation = useCallback(
     (teleporterId: string, activated: boolean) => {
-      console.log(`🔧 Activating teleporter ${teleporterId}: ${activated}`);
-
       setTeleporterStates((prev) => {
         const newStates = { ...prev, [teleporterId]: activated };
 
@@ -99,15 +97,11 @@ const GameScreen: React.FC<GameScreenProps> = ({
               );
               if (linkedTeleporter) {
                 newStates[linkedTeleporter.id] = activated;
-                console.log(
-                  `🔗 Also activating linked teleporter ${linkedTeleporter.id}: ${activated}`
-                );
               }
             }
           }
         }
 
-        console.log(`📊 New teleporter states:`, newStates);
         return newStates;
       });
     },
@@ -205,6 +199,22 @@ const GameScreen: React.FC<GameScreenProps> = ({
     }
   }, [selectedCharacter, game.resetGame]);
 
+  // Initialize teleporter states when rooms are loaded
+  useEffect(() => {
+    if (game.rooms.length > 0) {
+      const initialTeleporterStates: { [key: string]: boolean } = {};
+
+      // Initialize all teleporters to deactivated (false)
+      game.rooms.forEach((room) => {
+        room.teleporters.forEach((teleporter) => {
+          initialTeleporterStates[teleporter.id] = false;
+        });
+      });
+
+      setTeleporterStates(initialTeleporterStates);
+    }
+  }, [game.rooms]);
+
   // Handle joystick movement
   const handleJoystickMove = (direction: { x: number; y: number }) => {
     playerController.handleJoystickMove(direction);
@@ -212,51 +222,15 @@ const GameScreen: React.FC<GameScreenProps> = ({
 
   const handleTeleport = useCallback(
     (teleporter: Teleporter) => {
-      console.log(`🎯 handleTeleport called with teleporter:`, {
-        id: teleporter.id,
-        direction: teleporter.direction,
-        connectedRoomId: teleporter.connectedRoomId,
-        currentRoomId: game.currentRoomId,
-      });
-
       // Teleport player to the connected room
       const targetRoom = game.rooms.find(
         (r) => r.id === teleporter.connectedRoomId
       );
 
-      console.log(`🎯 Target room found:`, targetRoom ? targetRoom.id : "null");
       if (targetRoom) {
-        console.log(`🎯 Room details:`, {
-          roomId: targetRoom.id,
-          roomPosition: { x: targetRoom.x, y: targetRoom.y },
-          roomSize: { width: targetRoom.width, height: targetRoom.height },
-          allTeleporters: targetRoom.teleporters.map((t) => ({
-            id: t.id,
-            direction: t.direction,
-            position: { x: t.x, y: t.y },
-            connectedRoomId: t.connectedRoomId,
-          })),
-        });
-
         // Find the specific target teleporter
         const targetTeleporter = targetRoom.teleporters.find(
           (t) => t.connectedRoomId === game.currentRoomId
-        );
-
-        console.log(
-          `🎯 Looking for teleporter connected to:`,
-          game.currentRoomId
-        );
-        console.log(
-          `🎯 Target teleporter found:`,
-          targetTeleporter
-            ? {
-                id: targetTeleporter.id,
-                direction: targetTeleporter.direction,
-                position: { x: targetTeleporter.x, y: targetTeleporter.y },
-                connectedRoomId: targetTeleporter.connectedRoomId,
-              }
-            : "null"
         );
 
         if (targetTeleporter) {
@@ -280,24 +254,15 @@ const GameScreen: React.FC<GameScreenProps> = ({
               break;
           }
 
-          // Teleporter coordinates appear to be room-relative, so add room position
+          // Teleporter coordinates are already in world coordinates
           const teleporterCenterX =
-            targetRoom.x + targetTeleporter.x + targetTeleporter.width / 2;
+            targetTeleporter.x + targetTeleporter.width / 2;
           const teleporterCenterY =
-            targetRoom.y + targetTeleporter.y + targetTeleporter.height / 2;
+            targetTeleporter.y + targetTeleporter.height / 2;
 
           const newX = teleporterCenterX + offsetX;
           const newY = teleporterCenterY + offsetY;
           const newPosition = new Position(newX, newY);
-
-          console.log(`🎯 Setting new position:`, {
-            x: newX,
-            y: newY,
-            teleporterCenter: { x: teleporterCenterX, y: teleporterCenterY },
-            offset: { x: offsetX, y: offsetY },
-            roomPosition: { x: targetRoom.x, y: targetRoom.y },
-            teleporterRaw: { x: targetTeleporter.x, y: targetTeleporter.y },
-          });
 
           setPlayerPosition(newPosition);
           updateCameraPosition(newPosition);
@@ -306,27 +271,7 @@ const GameScreen: React.FC<GameScreenProps> = ({
           if (game.player) {
             game.player.position = newPosition;
           }
-
-          console.log(
-            `✨ Teleported to room ${
-              teleporter.connectedRoomId
-            } at position (${newX.toFixed(0)}, ${newY.toFixed(0)})`
-          );
-          console.log(`🎯 Player position after teleport:`, {
-            gamePlayerPos: game.player
-              ? { x: game.player.position.x, y: game.player.position.y }
-              : "null",
-            statePlayerPos: newPosition
-              ? { x: newPosition.x, y: newPosition.y }
-              : "null",
-          });
-        } else {
-          console.log(
-            `❌ Target teleporter not found in room ${targetRoom.id}`
-          );
         }
-      } else {
-        console.log(`❌ Target room not found: ${teleporter.connectedRoomId}`);
       }
     },
     [

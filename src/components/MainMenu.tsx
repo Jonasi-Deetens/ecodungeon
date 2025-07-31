@@ -419,6 +419,7 @@ const styles = StyleSheet.create({
   },
   rabbit: {
     position: "absolute",
+    bottom: 10,
     width: 40,
     height: 40,
     justifyContent: "center",
@@ -433,7 +434,7 @@ const styles = StyleSheet.create({
   },
   wolf: {
     position: "absolute",
-    bottom: 0,
+    bottom: 10,
     width: 40,
     height: 40,
     justifyContent: "center",

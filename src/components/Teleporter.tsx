@@ -43,29 +43,32 @@ const Teleporter: React.FC<TeleporterProps> = ({
 
   const isPlayerNearby = () => {
     // Convert player position to room-relative coordinates
-    const playerRoomX = roomPosition ? playerPosition.x - roomPosition.x : playerPosition.x;
-    const playerRoomY = roomPosition ? playerPosition.y - roomPosition.y : playerPosition.y;
-    
+    const playerRoomX = roomPosition
+      ? playerPosition.x - roomPosition.x
+      : playerPosition.x;
+    const playerRoomY = roomPosition
+      ? playerPosition.y - roomPosition.y
+      : playerPosition.y;
+
     const teleporterCenterX = teleporter.x + teleporter.width / 2;
     const teleporterCenterY = teleporter.y + teleporter.height / 2;
     const distance = Math.sqrt(
       Math.pow(playerRoomX - teleporterCenterX, 2) +
         Math.pow(playerRoomY - teleporterCenterY, 2)
     );
-    
-    // Debug logging when close to teleporter
-    if (distance < 200 && isActivated && !isTeleporting) {
-      console.log(`Teleporter ${teleporter.direction}: Player at (${playerRoomX.toFixed(0)}, ${playerRoomY.toFixed(0)}), Teleporter at (${teleporterCenterX.toFixed(0)}, ${teleporterCenterY.toFixed(0)}), Distance: ${distance.toFixed(0)}`);
-    }
-    
-    return distance <= 100; // 100px for walking over (increased from 50px)
+
+    return distance <= 80; // 80px for walking over (decreased from 100px)
   };
 
   const isPlayerInRange = () => {
     // Convert player position to room-relative coordinates
-    const playerRoomX = roomPosition ? playerPosition.x - roomPosition.x : playerPosition.x;
-    const playerRoomY = roomPosition ? playerPosition.y - roomPosition.y : playerPosition.y;
-    
+    const playerRoomX = roomPosition
+      ? playerPosition.x - roomPosition.x
+      : playerPosition.x;
+    const playerRoomY = roomPosition
+      ? playerPosition.y - roomPosition.y
+      : playerPosition.y;
+
     const teleporterCenterX = teleporter.x + teleporter.width / 2;
     const teleporterCenterY = teleporter.y + teleporter.height / 2;
     const distance = Math.sqrt(
@@ -73,21 +76,6 @@ const Teleporter: React.FC<TeleporterProps> = ({
         Math.pow(playerRoomY - teleporterCenterY, 2)
     );
     return distance <= 150; // 150px for clicking (increased from 100px)
-  };
-
-  const getTeleporterIcon = () => {
-    switch (teleporter.direction) {
-      case "north":
-        return "⬆️";
-      case "south":
-        return "⬇️";
-      case "east":
-        return "➡️";
-      case "west":
-        return "⬅️";
-      default:
-        return "🌀";
-    }
   };
 
   const getTeleporterColor = () => {
@@ -109,53 +97,35 @@ const Teleporter: React.FC<TeleporterProps> = ({
   useEffect(() => {
     const nearby = isPlayerNearby();
     const inRange = isPlayerInRange();
-    
-    // Debug logging for teleportation conditions
-    if (isActivated && nearby && !isTeleportingRef.current) {
-      console.log(`🔍 Teleporter ${teleporter.direction} ready for teleportation`);
-      console.log(`🔗 Linked teleporter:`, linkedTeleporter ? {
-        id: linkedTeleporter.id,
-        direction: linkedTeleporter.direction,
-        connectedRoomId: linkedTeleporter.connectedRoomId
-      } : 'null');
-    }
-    
+
     // Only start teleportation if all conditions are met and not already teleporting
-    if (isActivated && nearby && linkedTeleporter && !isTeleportingRef.current) {
-      console.log(`🚀 Starting teleportation from ${teleporter.direction} to ${linkedTeleporter.direction}`);
-      console.log(`📊 Conditions: activated=${isActivated}, nearby=${nearby}, hasLinked=${!!linkedTeleporter}, notTeleporting=${!isTeleportingRef.current}`);
-      
+    if (
+      isActivated &&
+      nearby &&
+      linkedTeleporter &&
+      !isTeleportingRef.current
+    ) {
       // Set teleporting state immediately
       setIsTeleporting(true);
-      
+
       // Clear any existing timeout
       if (teleportTimeoutRef.current) {
         clearTimeout(teleportTimeoutRef.current);
       }
-      
+
       // Add delay before teleporting
       teleportTimeoutRef.current = setTimeout(() => {
-        console.log(`✨ Teleporting from ${teleporter.direction} to ${linkedTeleporter.direction}`);
-        console.log(`📞 Calling onTeleport with:`, {
-          teleporterId: teleporter.id,
-          teleporterDirection: teleporter.direction,
-          onTeleportType: typeof onTeleport
-        });
-        
         // Call the teleport function
         onTeleport(teleporter);
-        
+
         // Reset teleporting state after a delay
         setTimeout(() => {
           setIsTeleporting(false);
-        }, 3000); // 3 seconds cooldown (increased from 2 seconds)
-        
+        }, 3000); // 3 seconds cooldown
+
         // Clear the timeout ref
         teleportTimeoutRef.current = null;
       }, 500); // 500ms delay before teleport
-    } else if (isActivated && nearby && !isTeleportingRef.current) {
-      // Debug why teleportation isn't starting
-      console.log(`❌ Teleportation blocked: activated=${isActivated}, nearby=${nearby}, hasLinked=${!!linkedTeleporter}, notTeleporting=${!isTeleportingRef.current}`);
     }
   }, [isActivated, playerPosition, linkedTeleporter, onTeleport, teleporter]);
 
@@ -176,29 +146,25 @@ const Teleporter: React.FC<TeleporterProps> = ({
       onPress={handlePress}
       disabled={!isPlayerInRange() || isTeleporting}
     >
-      <Text style={styles.teleporterIcon}>{getTeleporterIcon()}</Text>
-      <Text style={styles.roomName}>
-        {teleporter.id.split("_")[1]}_{teleporter.id.split("_")[2]}
-      </Text>
-      <Text style={styles.statusText}>{isActivated ? "ON" : "OFF"}</Text>
-      {isPlayerInRange() && !isTeleporting && (
-        <Text style={styles.interactionText}>
-          {isActivated ? "Click to Deactivate" : "Click to Activate"}
-        </Text>
-      )}
+      {/* Main teleporter portal effect */}
+      <View style={styles.portalRing}>
+        <View style={styles.portalInner} />
+      </View>
+
+      {/* Status indicator */}
+      <View
+        style={[
+          styles.statusIndicator,
+          { backgroundColor: isActivated ? "#00ff00" : "#ff0000" },
+        ]}
+      />
+
+      {/* Teleporting animation */}
       {isTeleporting && (
-        <Text style={styles.teleportText}>Teleporting...</Text>
+        <View style={styles.teleportingEffect}>
+          <Text style={styles.teleportText}>TELEPORTING</Text>
+        </View>
       )}
-      {/* Debug info */}
-      <Text style={styles.debugText}>
-        D: {Math.sqrt(
-          Math.pow((roomPosition ? playerPosition.x - roomPosition.x : playerPosition.x) - (teleporter.x + teleporter.width / 2), 2) +
-          Math.pow((roomPosition ? playerPosition.y - roomPosition.y : playerPosition.y) - (teleporter.y + teleporter.height / 2), 2)
-        ).toFixed(0)}
-      </Text>
-      <Text style={styles.debugText}>
-        {isActivated ? "A" : "D"} {isPlayerNearby() ? "N" : ""} {isPlayerInRange() ? "R" : ""}
-      </Text>
     </TouchableOpacity>
   );
 };
@@ -208,46 +174,60 @@ const styles = StyleSheet.create({
     position: "absolute",
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    borderRadius: 50, // Make it circular
+    borderWidth: 3,
+    borderStyle: "solid",
   },
-  teleporterIcon: {
-    fontSize: 24,
-    fontWeight: "bold",
+  portalRing: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    borderRadius: 50,
+    borderWidth: 4,
+    borderColor: "#ffffff",
+    borderStyle: "solid",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  roomName: {
-    fontSize: 10,
-    color: "#000",
-    fontWeight: "bold",
-    marginTop: 1,
+  portalInner: {
+    width: "70%",
+    height: "70%",
+    borderRadius: 35,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    borderWidth: 2,
+    borderColor: "#ffffff",
+    borderStyle: "solid",
   },
-  statusText: {
-    fontSize: 8,
-    color: "#000",
-    fontWeight: "bold",
-    marginTop: 1,
+
+  statusIndicator: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#ffffff",
   },
-  interactionText: {
-    fontSize: 8,
-    color: "#000",
-    fontWeight: "bold",
-    marginTop: 1,
-  },
-  debugText: {
-    fontSize: 8,
-    color: "#fff",
-    fontWeight: "bold",
-    marginTop: 1,
+  teleportingEffect: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(255, 0, 0, 0.7)",
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 20,
   },
   teleportText: {
-    fontSize: 10,
-    color: "#ff0000",
+    fontSize: 12,
+    color: "#ffffff",
     fontWeight: "bold",
-    marginTop: 2,
+    textShadowColor: "#000000",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });
 

@@ -25,6 +25,7 @@ import {
 import { CreatureAIFactory } from "../controllers/CreatureAI";
 import { RoomFactory } from "../factories/RoomFactory";
 import { DungeonGenerator } from "../factories/DungeonGenerator";
+import { RoomController } from "../controllers/RoomController";
 
 // Game state structure
 const initialState: GameState = {
@@ -40,6 +41,9 @@ const initialState: GameState = {
   rooms: [],
   currentRoomId: "",
 };
+
+// Room controller instance
+const roomController = new RoomController();
 
 // Action types
 const GameActions = {
@@ -264,6 +268,8 @@ interface GameContextType extends GameState {
   resetGame: (characterClass?: string) => void;
   changeRoom: (newRoomId: string) => void;
   allocateSkillPoint: (skill: "observation" | "restoration") => void;
+  // Room management
+  getRoomController: () => RoomController;
 }
 
 // Create context
@@ -771,6 +777,11 @@ export function GameProvider({ children }: GameProviderProps) {
     [state.player]
   );
 
+  // Room management methods
+  const getRoomController = useCallback(() => {
+    return roomController;
+  }, []);
+
   // Initialize game on mount
   useEffect(() => {
     initializeGame("wanderer");
@@ -794,6 +805,8 @@ export function GameProvider({ children }: GameProviderProps) {
     resetGame,
     changeRoom,
     allocateSkillPoint,
+    // Room management
+    getRoomController,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

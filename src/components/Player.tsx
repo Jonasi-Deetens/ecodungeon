@@ -59,7 +59,6 @@ const Player: React.FC<PlayerProps> = ({
         {
           left: screenX,
           top: screenY,
-          backgroundColor: getCharacterColor(characterClass),
         },
       ]}
     >
@@ -96,13 +95,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 40,
     height: 40,
-    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
     elevation: 8,
   },
   playerIcon: {
