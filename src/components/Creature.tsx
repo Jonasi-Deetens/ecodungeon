@@ -14,6 +14,7 @@ interface CreatureProps {
   species: string;
   hunger?: number;
   maxHunger?: number;
+  weight?: number;
   showRanges?: boolean;
   screenWidth?: number;
   screenHeight?: number;
@@ -30,6 +31,7 @@ const Creature: React.FC<CreatureProps> = ({
   species,
   hunger,
   maxHunger,
+  weight,
   showRanges = false,
   screenWidth = 400,
   screenHeight = 600,
@@ -194,6 +196,16 @@ const Creature: React.FC<CreatureProps> = ({
         </View>
       )}
 
+      {/* Debug info for plants */}
+      {type === EntityType.PLANT && (
+        <View style={styles.debugInfo}>
+          <Text style={styles.debugText}>
+            HP: {health.toFixed(0)}/{maxHealth.toFixed(0)}
+          </Text>
+          <Text style={styles.debugText}>W: {(weight || 0).toFixed(2)}</Text>
+        </View>
+      )}
+
       {/* Hunger bar for herbivores and carnivores */}
       {(type === EntityType.HERBIVORE || type === EntityType.CARNIVORE) &&
         hunger !== undefined &&
@@ -220,10 +232,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
     elevation: 4,
   },
   creatureIcon: {
@@ -265,7 +273,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   huntRange: {
-    width: 240, // 120px radius * 2 (from CarnivoreAI huntRange)
+    width: 240, // 120px radius * 2 (from AdvancedCarnivoreAI huntRange)
     height: 240,
     left: -100,
     top: -100,
@@ -273,7 +281,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(239, 68, 68, 0.1)",
   },
   fleeRange: {
-    width: 160, // 80px radius * 2 (from HerbivoreAI flee distance)
+    width: 160, // 80px radius * 2 (from AdvancedHerbivoreAI flee distance)
     height: 160,
     left: -60,
     top: -60,
@@ -281,12 +289,25 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(59, 130, 246, 0.1)",
   },
   foodRange: {
-    width: 100, // 50px radius * 2 (from HerbivoreAI foodDetectionRange)
+    width: 100, // 50px radius * 2 (from AdvancedHerbivoreAI foodDetectionRange)
     height: 100,
     left: -25,
     top: -25,
     borderColor: "rgba(34, 197, 94, 0.4)", // Green for food
     backgroundColor: "rgba(34, 197, 94, 0.1)",
+  },
+  debugInfo: {
+    position: "absolute",
+    top: -30,
+    left: -20,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    padding: 2,
+    borderRadius: 4,
+  },
+  debugText: {
+    color: "white",
+    fontSize: 10,
+    textAlign: "center",
   },
 });
 

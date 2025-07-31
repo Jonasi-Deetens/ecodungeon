@@ -180,10 +180,6 @@ export class RoomController {
 
   // Populate a room with zone-specific creatures
   public populateRoom(room: Room): void {
-    console.log(
-      `🎯 Populating room ${room.id} (${room.biome}) at (${room.x}, ${room.y}) size ${room.width}x${room.height}`
-    );
-
     const config = this.getRoomConfig(room.biome);
     if (!config) {
       console.warn(`No configuration found for biome: ${room.biome}`);
@@ -230,10 +226,6 @@ export class RoomController {
 
         if (!tooClose || attempts > 50) break; // Give up after 50 attempts
       } while (true);
-
-      console.log(
-        `Spawning ${entityType} at index ${index}: room(${room.x},${room.y}) size(${room.width}x${room.height}) -> world(${x},${y})`
-      );
 
       return new Position(x, y);
     };
@@ -297,9 +289,6 @@ export class RoomController {
     }
 
     room.entities = entities;
-    console.log(
-      `✅ Room ${room.id} populated with ${entities.length} entities`
-    );
   }
 
   // Update room ecosystem based on its configuration

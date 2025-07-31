@@ -13,9 +13,9 @@ interface RoomConfig {
   playerPosition: Position;
   screenWidth?: number;
   screenHeight?: number;
-  teleporterStates?: {[key: string]: boolean};
+  teleporterStates?: { [key: string]: boolean };
   onTeleporterActivation?: (teleporterId: string, activated: boolean) => void;
-  linkedTeleporters?: {[key: string]: any};
+  linkedTeleporters?: { [key: string]: any };
 }
 
 interface RoomProps {
@@ -198,6 +198,7 @@ const Room: React.FC<RoomProps> = ({ config }) => {
             maxHealth={entity.maxHealth}
             energy={entity.energy}
             maxEnergy={entity.maxEnergy}
+            weight={entity.weight}
             species={entity.species || "moss"}
             hunger={entity.hunger}
             maxHunger={entity.maxHunger}

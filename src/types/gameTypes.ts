@@ -180,47 +180,47 @@ export class Plant extends Entity implements IPlant {
     // Set species-specific weight and food value
     switch (species) {
       case "moss":
-        this.weight = 0.05;
+        this.weight = 0.3; // Increased from 0.05 to 0.3 (6x more food)
         this.foodValue = 8;
         break;
       case "fern":
-        this.weight = 0.2;
+        this.weight = 0.8; // Increased from 0.2 to 0.8 (4x more food)
         this.foodValue = 12;
         break;
       case "mushroom":
-        this.weight = 0.1;
+        this.weight = 0.5; // Increased from 0.1 to 0.5 (5x more food)
         this.foodValue = 15;
         break;
       case "flower":
-        this.weight = 0.15;
+        this.weight = 0.6; // Increased from 0.15 to 0.6 (4x more food)
         this.foodValue = 10;
         break;
       case "cactus":
-        this.weight = 0.3;
+        this.weight = 1.2; // Increased from 0.3 to 1.2 (4x more food)
         this.foodValue = 20;
         break;
       case "desert_flower":
-        this.weight = 0.1;
+        this.weight = 0.4; // Increased from 0.1 to 0.4 (4x more food)
         this.foodValue = 8;
         break;
       case "dry_grass":
-        this.weight = 0.05;
+        this.weight = 0.2; // Increased from 0.05 to 0.2 (4x more food)
         this.foodValue = 6;
         break;
       case "mutated_moss":
-        this.weight = 0.2;
+        this.weight = 0.8; // Increased from 0.2 to 0.8 (4x more food)
         this.foodValue = 25;
         break;
       case "glowing_fungus":
-        this.weight = 0.3;
+        this.weight = 1.0; // Increased from 0.3 to 1.0 (3.3x more food)
         this.foodValue = 30;
         break;
       case "toxic_plant":
-        this.weight = 0.4;
+        this.weight = 1.5; // Increased from 0.4 to 1.5 (3.75x more food)
         this.foodValue = 35;
         break;
       default:
-        this.weight = 0.1;
+        this.weight = 0.5; // Increased from 0.1 to 0.5 (5x more food)
         this.foodValue = 10;
     }
   }
@@ -253,7 +253,9 @@ export interface IHerbivore extends IEntity {
   maxHunger: number;
   reproductionRate: number;
   foodValue: number;
+  currentTarget: string | undefined; // ID of current eating target
   eat(food: IPlant): void;
+  clearTarget(): void;
 }
 
 // Herbivore entity
@@ -264,6 +266,7 @@ export class Herbivore extends Entity implements IHerbivore {
   public maxHunger: number;
   public reproductionRate: number;
   public foodValue: number;
+  public currentTarget: string | undefined;
 
   constructor(
     id: string,
@@ -343,26 +346,47 @@ export class Herbivore extends Entity implements IHerbivore {
   }
 
   eat(food: IPlant): void {
-    // Hunger satisfaction is based on the weight of the plant consumed
-    // Different herbivores have different digestive efficiency
+    // Gradual consumption - only eat a small amount per tick (33 ticks per second)
+    const consumptionPerTick = 0.01; // Reduced: 0.01 kg per tick = 0.33 kg per second (slower consumption)
     const plantWeight = food.weight;
-    let hungerSatisfaction = plantWeight * 20; // Base: 20 hunger per kg of plant
+
+    // Calculate how much we can eat this tick
+    const amountToEat = Math.min(consumptionPerTick, plantWeight);
+
+    // Reduce plant weight (this is the primary consumption)
+    food.weight = Math.max(0, food.weight - amountToEat);
+
+    // Reduce health proportionally but more slowly (health should last longer than weight)
+    const healthReductionRatio = (amountToEat / plantWeight) * 0.5; // Health reduces at half the rate of weight
+    food.health = Math.max(
+      0,
+      food.health - healthReductionRatio * food.maxHealth
+    );
+
+    // Only mark as dead when weight is completely consumed (not when health reaches 0)
+    if (food.weight <= 0) {
+      food.state = EntityState.DEAD;
+      food.health = 0;
+    }
+
+    // Calculate hunger satisfaction based on amount eaten
+    let hungerSatisfaction = amountToEat * 8; // Increased: 8 hunger per kg of plant for better balance
 
     switch (this.species) {
       case "rabbit":
-        hungerSatisfaction = plantWeight * 22; // Rabbits are efficient grazers
+        hungerSatisfaction = amountToEat * 8.8; // Rabbits are efficient grazers
         break;
       case "deer":
-        hungerSatisfaction = plantWeight * 18; // Deer need more food per kg
+        hungerSatisfaction = amountToEat * 7.2; // Deer need more food per kg
         break;
       case "mouse":
-        hungerSatisfaction = plantWeight * 25; // Mice are very efficient
+        hungerSatisfaction = amountToEat * 10; // Mice are very efficient
         break;
       case "turtle":
-        hungerSatisfaction = plantWeight * 15; // Turtles are slow metabolizers
+        hungerSatisfaction = amountToEat * 6; // Turtles are slow metabolizers
         break;
       default:
-        hungerSatisfaction = plantWeight * 20;
+        hungerSatisfaction = amountToEat * 8;
     }
 
     this.hunger = Math.max(0, this.hunger - hungerSatisfaction);
@@ -370,6 +394,10 @@ export class Herbivore extends Entity implements IHerbivore {
       this.maxHealth,
       this.health + hungerSatisfaction * 0.5
     );
+  }
+
+  clearTarget(): void {
+    this.currentTarget = undefined;
   }
 }
 
@@ -381,7 +409,12 @@ export interface ICarnivore extends IEntity {
   maxHunger: number;
   attackPower: number;
   reproductionRate: number;
+  huntingStyle: "stealth" | "chase" | "ambush"; // New hunting style property
+  stealthLevel: number; // How well they can sneak (0-1)
+  detectionRange: number; // How far prey can detect them when sneaking
+  currentTarget: string | undefined; // ID of current hunting target
   hunt(prey: IHerbivore): void;
+  clearTarget(): void;
 }
 
 // Carnivore entity
@@ -392,6 +425,10 @@ export class Carnivore extends Entity implements ICarnivore {
   public maxHunger: number;
   public attackPower: number;
   public reproductionRate: number;
+  public huntingStyle: "stealth" | "chase" | "ambush";
+  public stealthLevel: number;
+  public detectionRange: number;
+  public currentTarget: string | undefined;
 
   constructor(
     id: string,
@@ -407,7 +444,7 @@ export class Carnivore extends Entity implements ICarnivore {
     this.attackPower = 25;
     this.reproductionRate = 0.0002; // Adjusted for 30 FPS (0.006/30)
 
-    // Set species-specific stats with different speeds and weights
+    // Set species-specific stats with different speeds, weights, and hunting styles
     switch (species) {
       case "rat":
         this.speed = 3.2; // Fast and agile
@@ -415,6 +452,9 @@ export class Carnivore extends Entity implements ICarnivore {
         this.health = 80;
         this.weight = 0.3; // Very light
         this.attackPower = 20;
+        this.huntingStyle = "stealth"; // Rats are sneaky
+        this.stealthLevel = 0.8; // High stealth
+        this.detectionRange = 30; // Low detection range when sneaking
         break;
       case "wolf":
         this.speed = 3.8; // Very fast, pack hunter
@@ -422,6 +462,9 @@ export class Carnivore extends Entity implements ICarnivore {
         this.health = 120;
         this.weight = 40.0; // Medium weight
         this.attackPower = 35;
+        this.huntingStyle = "chase"; // Wolves chase their prey
+        this.stealthLevel = 0.3; // Low stealth, rely on speed
+        this.detectionRange = 80; // High detection range
         break;
       case "snake":
         this.speed = 2.0; // Slow but deadly
@@ -429,6 +472,9 @@ export class Carnivore extends Entity implements ICarnivore {
         this.health = 60;
         this.weight = 2.0; // Light
         this.attackPower = 40;
+        this.huntingStyle = "ambush"; // Snakes ambush their prey
+        this.stealthLevel = 0.9; // Very high stealth
+        this.detectionRange = 20; // Very low detection range
         break;
       case "bear":
         this.speed = 1.8; // Slow but powerful
@@ -436,6 +482,9 @@ export class Carnivore extends Entity implements ICarnivore {
         this.health = 200;
         this.weight = 300.0; // Very heavy
         this.attackPower = 50;
+        this.huntingStyle = "ambush"; // Bears ambush when possible
+        this.stealthLevel = 0.6; // Medium stealth for their size
+        this.detectionRange = 50; // Medium detection range
         break;
       default:
         this.speed = 2.5;
@@ -443,6 +492,9 @@ export class Carnivore extends Entity implements ICarnivore {
         this.health = 100;
         this.weight = 5.0;
         this.attackPower = 25;
+        this.huntingStyle = "chase";
+        this.stealthLevel = 0.5;
+        this.detectionRange = 60;
     }
 
     // Set max hunger based on weight (heavier predators need more food)
@@ -479,42 +531,58 @@ export class Carnivore extends Entity implements ICarnivore {
       if (prey.health <= 0) {
         prey.state = EntityState.DEAD;
         prey.health = 0;
-
-        // Only gain hunger satisfaction when prey is actually killed
-        // Hunger satisfaction is based on the weight of the prey consumed
-        // Different predators have different metabolic efficiency
-        const preyWeight = prey.weight;
-        let hungerSatisfaction = preyWeight * 10; // Base: 10 hunger per kg of prey
-
-        switch (this.species) {
-          case "wolf":
-            hungerSatisfaction = preyWeight * 12; // Wolves are efficient hunters
-            break;
-          case "bear":
-            hungerSatisfaction = preyWeight * 8; // Bears need more food per kg
-            break;
-          case "snake":
-            hungerSatisfaction = preyWeight * 15; // Snakes are very efficient
-            break;
-          case "rat":
-            hungerSatisfaction = preyWeight * 11; // Rats are somewhat efficient
-            break;
-          default:
-            hungerSatisfaction = preyWeight * 10;
-        }
-
-        // Reduce hunger and gain health
-        this.hunger = Math.max(0, this.hunger - hungerSatisfaction);
-        this.health = Math.min(
-          this.maxHealth,
-          this.health + hungerSatisfaction * 0.3
-        );
       } else {
         // Prey is injured but alive - set to fleeing state
-        // No hunger satisfaction for failed hunts
         prey.state = EntityState.FLEEING;
       }
+    } else if (prey.state === EntityState.DEAD) {
+      // Eat the dead prey gradually
+      const consumptionPerTick = 0.02; // 0.02 kg per tick = 0.66 kg per second
+      const preyWeight = prey.weight;
+
+      // Calculate how much we can eat this tick
+      const amountToEat = Math.min(consumptionPerTick, preyWeight);
+
+      // Reduce prey weight
+      prey.weight = Math.max(0, prey.weight - amountToEat);
+
+      // If prey is completely consumed, remove it
+      if (prey.weight <= 0) {
+        prey.state = EntityState.DEAD;
+        prey.health = 0;
+      }
+
+      // Calculate hunger satisfaction based on amount eaten
+      let hungerSatisfaction = amountToEat * 2; // Reduced: 2 hunger per kg of prey
+
+      switch (this.species) {
+        case "wolf":
+          hungerSatisfaction = amountToEat * 2.4; // Wolves are efficient hunters
+          break;
+        case "bear":
+          hungerSatisfaction = amountToEat * 1.6; // Bears need more food per kg
+          break;
+        case "snake":
+          hungerSatisfaction = amountToEat * 3; // Snakes are very efficient
+          break;
+        case "rat":
+          hungerSatisfaction = amountToEat * 2.2; // Rats are somewhat efficient
+          break;
+        default:
+          hungerSatisfaction = amountToEat * 2;
+      }
+
+      // Reduce hunger and gain health
+      this.hunger = Math.max(0, this.hunger - hungerSatisfaction);
+      this.health = Math.min(
+        this.maxHealth,
+        this.health + hungerSatisfaction * 0.3
+      );
     }
+  }
+
+  clearTarget(): void {
+    this.currentTarget = undefined;
   }
 }
 
