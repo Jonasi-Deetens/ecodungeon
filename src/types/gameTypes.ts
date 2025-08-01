@@ -327,15 +327,19 @@ export class Herbivore extends Entity implements IHerbivore {
   update(deltaTime: number): void {
     super.update(deltaTime);
 
-    if (this.state === EntityState.ALIVE) {
+    if (
+      this.state === EntityState.ALIVE ||
+      this.state === EntityState.FLEEING
+    ) {
       this.hunger += deltaTime * 0.5; // Reduced hunger increase rate for better balance
 
       if (this.hunger > this.maxHunger) {
         this.health -= deltaTime * 0.5;
       }
 
-      // Reproduce when well-fed (much less frequently)
+      // Reproduce when well-fed (much less frequently) - but only when ALIVE, not when FLEEING
       if (
+        this.state === EntityState.ALIVE &&
         this.canReproduce() &&
         this.hunger < this.maxHunger * 0.3 &&
         Math.random() < this.reproductionRate * deltaTime
@@ -523,9 +527,13 @@ export class Carnivore extends Entity implements ICarnivore {
   }
 
   hunt(prey: IHerbivore): void {
-    if (prey.state === EntityState.ALIVE) {
+    if (
+      prey.state === EntityState.ALIVE ||
+      prey.state === EntityState.FLEEING
+    ) {
       // Deal damage to prey
-      prey.health -= this.attackPower;
+      const damageDealt = this.attackPower;
+      prey.health -= damageDealt;
 
       // Check if prey dies from damage
       if (prey.health <= 0) {
