@@ -514,19 +514,24 @@ export function GameProvider({ children }: GameProviderProps) {
               e.type === EntityType.PLANT &&
               (e.state === EntityState.ALIVE ||
                 (e.state === EntityState.DEAD && e.weight > 0)) &&
-              herbivore.position.distanceTo(e.position) <= 20 // Eating range matches AI
+              herbivore.position.distanceTo(e.position) <= 40 // Increased eating range for better plant detection
           ) as Plant[];
 
-          // Only eat when significantly hungry (more realistic behavior)
+          // Eat when hungry OR when we have a current target (continue eating until full or plant is dead)
           const hungerThreshold = herbivore.maxHunger * 0.6; // 60% hungry
           const isHungry = herbivore.hunger > hungerThreshold;
+          const isFull = herbivore.hunger <= 0; // Stop eating when completely full
 
           // Continue eating current target even if not hungry, but only start eating new targets when hungry
           const hasCurrentTarget =
             herbivore.currentTarget &&
             nearbyPlants.find((p) => p.id === herbivore.currentTarget);
 
-          if (nearbyPlants.length > 0 && (isHungry || hasCurrentTarget)) {
+          if (
+            nearbyPlants.length > 0 &&
+            (isHungry || hasCurrentTarget) &&
+            !isFull
+          ) {
             let target: Plant | undefined;
 
             // If we have a current target, try to stick with it
@@ -536,9 +541,6 @@ export function GameProvider({ children }: GameProviderProps) {
               );
               if (target) {
               } else {
-                console.log(
-                  `Herbivore ${herbivore.id} current target ${herbivore.currentTarget} not found in nearby plants`
-                );
               }
             }
 
@@ -561,13 +563,6 @@ export function GameProvider({ children }: GameProviderProps) {
 
               // Set the new target
               if (target) {
-                console.log(
-                  `Herbivore ${herbivore.id} setting new target ${
-                    target.id
-                  } (plant state: ${
-                    target.state
-                  }, weight: ${target.weight.toFixed(2)})`
-                );
                 herbivore.currentTarget = target.id;
               }
             } else {
@@ -581,23 +576,11 @@ export function GameProvider({ children }: GameProviderProps) {
                 targetPlant.weight > 0
               ) {
                 // Plant exists but is too far away - keep the target and let AI move toward it
-                console.log(
-                  `Herbivore ${herbivore.id} current target ${
-                    herbivore.currentTarget
-                  } too far away (${herbivore.position
-                    .distanceTo(targetPlant.position)
-                    .toFixed(1)}px) - keeping target`
-                );
+
                 target = targetPlant; // Keep the target for AI movement
               } else {
                 // Plant is consumed or doesn't exist - clear the target
-                console.log(
-                  `Herbivore ${herbivore.id} current target ${
-                    herbivore.currentTarget
-                  } consumed or doesn't exist - clearing target (available plants: ${nearbyPlants
-                    .map((p) => `${p.id}(${p.state},${p.weight.toFixed(2)})`)
-                    .join(", ")})`
-                );
+
                 herbivore.clearTarget();
                 target = undefined; // Force choosing a new target
               }
@@ -611,24 +594,11 @@ export function GameProvider({ children }: GameProviderProps) {
 
               if (now - lastEatTime >= eatCooldown) {
                 const distance = herbivore.position.distanceTo(target.position);
-                console.log(
-                  `Herbivore ${herbivore.id} eating target ${
-                    target.id
-                  } at distance ${distance.toFixed(
-                    1
-                  )}px (plant weight: ${target.weight.toFixed(2)})`
-                );
                 herbivore.eat(target);
                 (herbivore as any).lastEatTime = now;
               }
             }
           } else {
-            // No nearby plants or not hungry - clear target
-            if (herbivore.currentTarget) {
-              console.log(
-                `Herbivore ${herbivore.id} clearing target ${herbivore.currentTarget} (no plants/hungry)`
-              );
-            }
             herbivore.clearTarget();
           }
         }
@@ -789,9 +759,13 @@ export function GameProvider({ children }: GameProviderProps) {
       // Handle entity interactions
       const finalEntities = handleEntityInteractions(updatedEntities);
 
-      // Remove dead entities
+      // Remove dead entities (either state DEAD or fully consumed entities with weight <= 0)
+      const deadEntities = finalEntities.filter(
+        (e) => e.state === EntityState.DEAD || e.weight <= 0
+      );
+
       const aliveEntities = finalEntities.filter(
-        (e) => e.state !== EntityState.DEAD
+        (e) => !(e.state === EntityState.DEAD || e.weight <= 0)
       );
 
       // Calculate ecosystem health

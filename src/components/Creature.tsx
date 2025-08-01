@@ -14,7 +14,6 @@ interface CreatureProps {
   species: string;
   hunger?: number;
   maxHunger?: number;
-  weight?: number;
   showRanges?: boolean;
   screenWidth?: number;
   screenHeight?: number;
@@ -31,7 +30,6 @@ const Creature: React.FC<CreatureProps> = ({
   species,
   hunger,
   maxHunger,
-  weight,
   showRanges = false,
   screenWidth = 400,
   screenHeight = 600,
@@ -196,16 +194,6 @@ const Creature: React.FC<CreatureProps> = ({
         </View>
       )}
 
-      {/* Debug info for plants */}
-      {type === EntityType.PLANT && (
-        <View style={styles.debugInfo}>
-          <Text style={styles.debugText}>
-            HP: {health.toFixed(0)}/{maxHealth.toFixed(0)}
-          </Text>
-          <Text style={styles.debugText}>W: {(weight || 0).toFixed(2)}</Text>
-        </View>
-      )}
-
       {/* Hunger bar for herbivores and carnivores */}
       {(type === EntityType.HERBIVORE || type === EntityType.CARNIVORE) &&
         hunger !== undefined &&
@@ -295,19 +283,6 @@ const styles = StyleSheet.create({
     top: -25,
     borderColor: "rgba(34, 197, 94, 0.4)", // Green for food
     backgroundColor: "rgba(34, 197, 94, 0.1)",
-  },
-  debugInfo: {
-    position: "absolute",
-    top: -30,
-    left: -20,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    padding: 2,
-    borderRadius: 4,
-  },
-  debugText: {
-    color: "white",
-    fontSize: 10,
-    textAlign: "center",
   },
 });
 

@@ -179,7 +179,7 @@ const Room: React.FC<RoomProps> = ({ config }) => {
         );
       })}
 
-      {/* Room Entities */}
+      {/* Room Entities - Already filtered by GameScreen */}
       {config.room.entities.map((entity: any) => {
         // Convert entity world coordinates to room-relative coordinates
         const roomRelativePosition = new Position(
@@ -198,7 +198,6 @@ const Room: React.FC<RoomProps> = ({ config }) => {
             maxHealth={entity.maxHealth}
             energy={entity.energy}
             maxEnergy={entity.maxEnergy}
-            weight={entity.weight}
             species={entity.species || "moss"}
             hunger={entity.hunger}
             maxHunger={entity.maxHunger}

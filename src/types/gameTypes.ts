@@ -302,7 +302,7 @@ export class Herbivore extends Entity implements IHerbivore {
         this.speed = 4.2; // Very fast, small target
         this.maxHealth = 40;
         this.health = 40;
-        this.weight = 0.03; // Very light
+        this.weight = 0.3; // Increased from 0.03 to 0.3 for better hunger balance
         this.foodValue = 15;
         break;
       case "turtle":
@@ -328,7 +328,7 @@ export class Herbivore extends Entity implements IHerbivore {
     super.update(deltaTime);
 
     if (this.state === EntityState.ALIVE) {
-      this.hunger += deltaTime * 2.0; // Much faster hunger increase for testing
+      this.hunger += deltaTime * 0.5; // Reduced hunger increase rate for better balance
 
       if (this.hunger > this.maxHunger) {
         this.health -= deltaTime * 0.5;
@@ -347,7 +347,7 @@ export class Herbivore extends Entity implements IHerbivore {
 
   eat(food: IPlant): void {
     // Gradual consumption - only eat a small amount per tick (33 ticks per second)
-    const consumptionPerTick = 0.01; // Reduced: 0.01 kg per tick = 0.33 kg per second (slower consumption)
+    const consumptionPerTick = 0.05; // Increased: 0.05 kg per tick = 1.65 kg per second (faster consumption)
     const plantWeight = food.weight;
 
     // Calculate how much we can eat this tick
@@ -370,23 +370,23 @@ export class Herbivore extends Entity implements IHerbivore {
     }
 
     // Calculate hunger satisfaction based on amount eaten
-    let hungerSatisfaction = amountToEat * 8; // Increased: 8 hunger per kg of plant for better balance
+    let hungerSatisfaction = amountToEat * 20; // Increased: 20 hunger per kg of plant for better balance
 
     switch (this.species) {
       case "rabbit":
-        hungerSatisfaction = amountToEat * 8.8; // Rabbits are efficient grazers
+        hungerSatisfaction = amountToEat * 22; // Rabbits are efficient grazers
         break;
       case "deer":
-        hungerSatisfaction = amountToEat * 7.2; // Deer need more food per kg
+        hungerSatisfaction = amountToEat * 18; // Deer need more food per kg
         break;
       case "mouse":
-        hungerSatisfaction = amountToEat * 10; // Mice are very efficient
+        hungerSatisfaction = amountToEat * 25; // Mice are very efficient
         break;
       case "turtle":
-        hungerSatisfaction = amountToEat * 6; // Turtles are slow metabolizers
+        hungerSatisfaction = amountToEat * 15; // Turtles are slow metabolizers
         break;
       default:
-        hungerSatisfaction = amountToEat * 8;
+        hungerSatisfaction = amountToEat * 20;
     }
 
     this.hunger = Math.max(0, this.hunger - hungerSatisfaction);

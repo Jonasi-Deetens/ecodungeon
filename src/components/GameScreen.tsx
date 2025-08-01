@@ -320,11 +320,22 @@ const GameScreen: React.FC<GameScreenProps> = ({
               }
             });
 
+            // Get entities for this room from the global filtered entities
+            const roomEntities = game.entities.filter(
+              (entity) => entity.roomId === room.id
+            );
+
+            // Create a room object with filtered entities
+            const roomWithFilteredEntities = {
+              ...room,
+              entities: roomEntities,
+            };
+
             return (
               <Room
                 key={room.id}
                 config={{
-                  room: room,
+                  room: roomWithFilteredEntities,
                   cameraPosition: cameraPosition,
                   showRanges: showRanges,
                   onTeleport: handleTeleport,
