@@ -81,6 +81,7 @@ export interface IEntity {
   health: number;
   maxHealth: number;
   state: EntityStateValue;
+  behaviorState: string; // AI behavior state (wandering, hunting, grazing, etc.)
   age: number;
   energy: number;
   maxEnergy: number;
@@ -98,6 +99,7 @@ export abstract class Entity implements IEntity {
   public health: number;
   public maxHealth: number;
   public state: EntityStateValue;
+  public behaviorState: string;
   public age: number;
   public energy: number;
   public maxEnergy: number;
@@ -118,6 +120,7 @@ export abstract class Entity implements IEntity {
     this.health = health;
     this.maxHealth = health;
     this.state = EntityState.ALIVE;
+    this.behaviorState = "wandering"; // Default behavior state
     this.age = 0;
     this.energy = 100;
     this.maxEnergy = 100;
@@ -276,7 +279,7 @@ export class Herbivore extends Entity implements IHerbivore {
   ) {
     super(id, EntityType.HERBIVORE, position, 60, 2.0, roomId);
     this.species = species;
-    this.speed = 3; // Fast for escaping predators
+    this.speed = 80; // Much faster for visible movement
     this.hunger = 0;
     this.maxHunger = 80; // Will be updated based on weight
     this.reproductionRate = 0.00027; // Adjusted for 30 FPS (0.008/30)
@@ -285,35 +288,35 @@ export class Herbivore extends Entity implements IHerbivore {
     // Set species-specific stats with different speeds and weights
     switch (species) {
       case "rabbit":
-        this.speed = 3.5; // Fast and agile
+        this.speed = 120; // Fast and agile
         this.maxHealth = 60;
         this.health = 60;
         this.weight = 2.5; // Light
         this.foodValue = 25;
         break;
       case "deer":
-        this.speed = 2.8; // Moderate speed, good stamina
+        this.speed = 100; // Moderate speed, good stamina
         this.maxHealth = 120;
         this.health = 120;
         this.weight = 80.0; // Heavy
         this.foodValue = 50;
         break;
       case "mouse":
-        this.speed = 4.2; // Very fast, small target
+        this.speed = 80; // Increased from 4.2 to 80 for visible movement
         this.maxHealth = 40;
         this.health = 40;
         this.weight = 0.3; // Increased from 0.03 to 0.3 for better hunger balance
         this.foodValue = 15;
         break;
       case "turtle":
-        this.speed = 1.2; // Slow but tough
+        this.speed = 40; // Increased from 1.2 to 40 for visible movement
         this.maxHealth = 150;
         this.health = 150;
         this.weight = 15.0; // Medium weight
         this.foodValue = 35;
         break;
       default:
-        this.speed = 3.0;
+        this.speed = 60; // Increased from 3.0 to 60 for visible movement
         this.maxHealth = 60;
         this.health = 60;
         this.weight = 2.0;
@@ -331,7 +334,10 @@ export class Herbivore extends Entity implements IHerbivore {
       this.state === EntityState.ALIVE ||
       this.state === EntityState.FLEEING
     ) {
-      this.hunger += deltaTime * 0.5; // Reduced hunger increase rate for better balance
+      this.hunger += deltaTime * 2.0; // Increased from 1.0 to 2.0 for much faster hunger
+
+      // CAP HUNGER TO PREVENT EXTREME VALUES
+      this.hunger = Math.min(this.hunger, this.maxHunger * 1.0); // Changed from 2.0 to 1.0 (100% max)
 
       if (this.hunger > this.maxHunger) {
         this.health -= deltaTime * 0.5;
@@ -442,7 +448,7 @@ export class Carnivore extends Entity implements ICarnivore {
   ) {
     super(id, EntityType.CARNIVORE, position, 100, 5.0, roomId);
     this.species = species;
-    this.speed = 2.5; // Rats are fast and agile
+    this.speed = 90; // Much faster for visible movement
     this.hunger = 0;
     this.maxHunger = 60; // Will be updated based on weight
     this.attackPower = 25;
@@ -451,7 +457,7 @@ export class Carnivore extends Entity implements ICarnivore {
     // Set species-specific stats with different speeds, weights, and hunting styles
     switch (species) {
       case "rat":
-        this.speed = 3.2; // Fast and agile
+        this.speed = 110; // Fast and agile
         this.maxHealth = 80;
         this.health = 80;
         this.weight = 0.3; // Very light
@@ -461,7 +467,7 @@ export class Carnivore extends Entity implements ICarnivore {
         this.detectionRange = 30; // Low detection range when sneaking
         break;
       case "wolf":
-        this.speed = 3.8; // Very fast, pack hunter
+        this.speed = 130; // Very fast, pack hunter
         this.maxHealth = 120;
         this.health = 120;
         this.weight = 40.0; // Medium weight
@@ -471,7 +477,7 @@ export class Carnivore extends Entity implements ICarnivore {
         this.detectionRange = 80; // High detection range
         break;
       case "snake":
-        this.speed = 2.0; // Slow but deadly
+        this.speed = 90; // Increased from 70 to 90 for visible movement
         this.maxHealth = 60;
         this.health = 60;
         this.weight = 2.0; // Light
@@ -481,7 +487,7 @@ export class Carnivore extends Entity implements ICarnivore {
         this.detectionRange = 20; // Very low detection range
         break;
       case "bear":
-        this.speed = 1.8; // Slow but powerful
+        this.speed = 80; // Increased from 60 to 80 for visible movement
         this.maxHealth = 200;
         this.health = 200;
         this.weight = 300.0; // Very heavy
@@ -491,7 +497,7 @@ export class Carnivore extends Entity implements ICarnivore {
         this.detectionRange = 50; // Medium detection range
         break;
       default:
-        this.speed = 2.5;
+        this.speed = 90;
         this.maxHealth = 100;
         this.health = 100;
         this.weight = 5.0;
@@ -509,7 +515,10 @@ export class Carnivore extends Entity implements ICarnivore {
     super.update(deltaTime);
 
     if (this.state === EntityState.ALIVE) {
-      this.hunger += deltaTime * 1.5; // Much faster hunger increase for testing
+      this.hunger += deltaTime * 0.8; // Reduced from 1.5 to 0.8 for better balance
+
+      // CAP HUNGER TO PREVENT EXTREME VALUES
+      this.hunger = Math.min(this.hunger, this.maxHunger * 1.0); // Changed from 2.0 to 1.0 (100% max)
 
       if (this.hunger > this.maxHunger) {
         this.health -= deltaTime * 0.3;

@@ -5,12 +5,15 @@ import React, {
   useEffect,
   useCallback,
   ReactNode,
+  useState,
+  useRef,
 } from "react";
 import {
   EntityType,
   EcosystemHealth,
   PlayerAction,
   EntityState,
+  EntityStateValue,
   Position,
   Plant,
   Herbivore,
@@ -289,6 +292,10 @@ interface GameProviderProps {
 
 export function GameProvider({ children }: GameProviderProps) {
   const [state, dispatch] = useReducer(gameReducer, initialState);
+  const [roomController] = useState(() => new RoomController());
+
+  // Cache AI instances per entity to prevent recreation every frame
+  const aiCache = useRef<Map<string, AdvancedCreatureAI>>(new Map());
 
   // Initialize the game world with multiple rooms
   const initializeGame = useCallback((characterClass: string = "wanderer") => {
@@ -499,7 +506,7 @@ export function GameProvider({ children }: GameProviderProps) {
       entities.forEach((herbivoreEntity) => {
         if (
           herbivoreEntity.type === EntityType.HERBIVORE &&
-          herbivoreEntity.state === EntityState.ALIVE
+          herbivoreEntity.state === EntityState.ALIVE // Keep this check for life state
         ) {
           const herbivore = herbivoreEntity as Herbivore;
           const nearbyPlants = entities.filter(
@@ -510,19 +517,18 @@ export function GameProvider({ children }: GameProviderProps) {
               herbivore.position.distanceTo(e.position) <= 40 // Increased eating range for better plant detection
           ) as Plant[];
 
-          // Eat when hungry OR when we have a current target (continue eating until full or plant is dead)
-          const hungerThreshold = herbivore.maxHunger * 0.6; // 60% hungry
-          const isHungry = herbivore.hunger > hungerThreshold;
+          // Eat when in grazing state OR when we have a current target (continue eating until full or plant is dead)
+          const isGrazing = herbivore.behaviorState === "grazing";
           const isFull = herbivore.hunger <= 0; // Stop eating when completely full
 
-          // Continue eating current target even if not hungry, but only start eating new targets when hungry
+          // Continue eating current target even if not in grazing state, but only start eating new targets when grazing
           const hasCurrentTarget =
             herbivore.currentTarget &&
             nearbyPlants.find((p) => p.id === herbivore.currentTarget);
 
           if (
             nearbyPlants.length > 0 &&
-            (isHungry || hasCurrentTarget) &&
+            (isGrazing || hasCurrentTarget) &&
             !isFull
           ) {
             let target: Plant | undefined;
@@ -587,6 +593,21 @@ export function GameProvider({ children }: GameProviderProps) {
 
               if (now - lastEatTime >= eatCooldown) {
                 const distance = herbivore.position.distanceTo(target.position);
+
+                // Debug logging for eating behavior
+                if (Math.random() < 0.01) {
+                  console.log(`Eating Debug:`);
+                  console.log(`  Behavior State: ${herbivore.behaviorState}`);
+                  console.log(
+                    `  Hunger: ${(
+                      (herbivore.hunger / herbivore.maxHunger) *
+                      100
+                    ).toFixed(1)}%`
+                  );
+                  console.log(`  Distance to Plant: ${distance.toFixed(1)}`);
+                  console.log(`  Plant Weight: ${target.weight.toFixed(1)}`);
+                }
+
                 herbivore.eat(target);
                 (herbivore as any).lastEatTime = now;
               }
@@ -674,10 +695,15 @@ export function GameProvider({ children }: GameProviderProps) {
           entity.state === EntityState.ALIVE &&
           entity.type !== EntityType.PLAYER
         ) {
-          const ai = AdvancedCreatureAIFactory.createAI(
-            entity.type,
-            (entity as any).species
-          );
+          // Get or create AI instance from cache to prevent recreation every frame
+          let ai = aiCache.current.get(entity.id);
+          if (!ai) {
+            ai = AdvancedCreatureAIFactory.createAI(
+              entity.type,
+              (entity as any).species
+            );
+            aiCache.current.set(entity.id, ai);
+          }
 
           // Get nearby entities for AI decision making (within reasonable range)
           const nearbyEntities = state.entities.filter(
@@ -701,7 +727,7 @@ export function GameProvider({ children }: GameProviderProps) {
             : undefined;
 
           // Update position using AI with room bounds, biome, and difficulty
-          const newPosition = ai.update(
+          const aiResult = ai.update(
             deltaTime,
             entity.position,
             nearbyEntities,
@@ -728,22 +754,41 @@ export function GameProvider({ children }: GameProviderProps) {
             entity.type === EntityType.HERBIVORE ||
               entity.type === EntityType.CARNIVORE
               ? (entity as Herbivore | Carnivore).speed
+              : undefined,
+            entity.type === EntityType.HERBIVORE ||
+              entity.type === EntityType.CARNIVORE
+              ? (entity as Herbivore | Carnivore).health
+              : undefined,
+            entity.type === EntityType.HERBIVORE ||
+              entity.type === EntityType.CARNIVORE
+              ? (entity as Herbivore | Carnivore).maxHealth
+              : undefined,
+            entity.type === EntityType.HERBIVORE ||
+              entity.type === EntityType.CARNIVORE
+              ? 100 // Default energy
+              : undefined,
+            entity.type === EntityType.HERBIVORE ||
+              entity.type === EntityType.CARNIVORE
+              ? 100 // Default maxEnergy
               : undefined
           );
 
+          // Update entity position and state from AI result
+          entity.position.x = aiResult.position.x;
+          entity.position.y = aiResult.position.y;
+          entity.behaviorState = aiResult.state; // Set behavior state, not life state
+
           // Keep entity within its own room bounds
           if (entityRoom) {
-            newPosition.x = Math.max(
+            entity.position.x = Math.max(
               entityRoom.x + 50,
-              Math.min(entityRoom.x + entityRoom.width - 50, newPosition.x)
+              Math.min(entityRoom.x + entityRoom.width - 50, entity.position.x)
             );
-            newPosition.y = Math.max(
+            entity.position.y = Math.max(
               entityRoom.y + 50,
-              Math.min(entityRoom.y + entityRoom.height - 50, newPosition.y)
+              Math.min(entityRoom.y + entityRoom.height - 50, entity.position.y)
             );
           }
-
-          entity.position = newPosition;
         }
 
         return entity;
@@ -756,6 +801,11 @@ export function GameProvider({ children }: GameProviderProps) {
       const deadEntities = finalEntities.filter(
         (e) => e.state === EntityState.DEAD || e.weight <= 0
       );
+
+      // Clean up AI cache for dead entities
+      deadEntities.forEach((entity) => {
+        aiCache.current.delete(entity.id);
+      });
 
       // Keep alive entities AND dead entities that still have weight (for eating)
       const aliveEntities = finalEntities.filter(
@@ -941,6 +991,8 @@ export function GameProvider({ children }: GameProviderProps) {
 
   const resetGame = useCallback(
     (characterClass?: string) => {
+      // Clear AI cache when resetting game
+      aiCache.current.clear();
       dispatch({ type: GameActions.RESET_GAME });
       initializeGame(characterClass || "wanderer");
     },

@@ -12,6 +12,7 @@ import { Position } from "../types/gameTypes";
 import Joystick from "./Joystick";
 import Player from "./Player";
 import Room from "./Room";
+import CreatureDebugPanel from "./CreatureDebugPanel";
 import { usePlayerController } from "../controllers/PlayerController";
 import { Teleporter } from "../types/gameTypes";
 
@@ -42,6 +43,7 @@ const GameScreen: React.FC<GameScreenProps> = ({
   const [cameraPosition, setCameraPosition] = useState(new Position(0, 0));
   const [showRanges, setShowRanges] = useState(false);
   const [showSkillAllocation, setShowSkillAllocation] = useState(false);
+  const [showCreatureDebug, setShowCreatureDebug] = useState(false);
   const [teleporterStates, setTeleporterStates] = useState<{
     [key: string]: boolean;
   }>({});
@@ -400,6 +402,24 @@ const GameScreen: React.FC<GameScreenProps> = ({
             </Text>
           </View>
         </View>
+
+        {/* Debug Panel Toggle */}
+        <TouchableOpacity
+          style={styles.debugToggleButton}
+          onPress={() => setShowCreatureDebug(!showCreatureDebug)}
+        >
+          <Text style={styles.debugToggleButtonText}>
+            {showCreatureDebug ? "🔽" : "🔼"} Debug
+          </Text>
+        </TouchableOpacity>
+
+        {/* Creature Debug Panel */}
+        <CreatureDebugPanel
+          entities={game.entities.filter(
+            (entity) => entity.roomId === game.currentRoomId
+          )}
+          visible={showCreatureDebug}
+        />
 
         {/* Skill Allocation Modal */}
         {showSkillAllocation && game.player && (
@@ -764,6 +784,23 @@ const styles = StyleSheet.create({
   skillOptionDesc: {
     fontSize: 12,
     color: "#94a3b8",
+  },
+  debugToggleButton: {
+    position: "absolute",
+    top: 80,
+    left: 20,
+    backgroundColor: "rgba(30, 41, 59, 0.9)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#334155",
+    zIndex: 50,
+  },
+  debugToggleButtonText: {
+    fontSize: 14,
+    color: "#e2e8f0",
+    fontWeight: "bold",
   },
 });
 
