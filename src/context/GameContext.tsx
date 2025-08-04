@@ -375,138 +375,76 @@ export function GameProvider({ children }: GameProviderProps) {
     (entities: IEntity[]): IEntity[] => {
       const newEntities = [...entities];
 
-      // Handle carnivore hunting - only when hungry
+      // Handle carnivore hunting and eating - simplified for new state system
       entities.forEach((carnivoreEntity) => {
         if (
           carnivoreEntity.type === EntityType.CARNIVORE &&
           carnivoreEntity.state === EntityState.ALIVE
         ) {
           const carnivore = carnivoreEntity as Carnivore;
-          const nearbyHerbivores = entities.filter(
+          const nearbyLiveHerbivores = entities.filter(
             (e) =>
               e.type === EntityType.HERBIVORE &&
-              (e.state === EntityState.ALIVE ||
-                e.state === EntityState.FLEEING ||
-                (e.state === EntityState.DEAD && e.weight > 0)) &&
-              carnivore.position.distanceTo(e.position) <= 40 // Increased attack range for better hunting
+              (e.state === EntityState.ALIVE || e.state === EntityState.FLEEING) &&
+              carnivore.position.distanceTo(e.position) <= 30 // Attack range
+          ) as Herbivore[];
+          
+          const nearbyDeadHerbivores = entities.filter(
+            (e) =>
+              e.type === EntityType.HERBIVORE &&
+              e.state === EntityState.DEAD &&
+              e.weight > 0 &&
+              carnivore.position.distanceTo(e.position) <= 30 // Eating range
           ) as Herbivore[];
 
-          // Hunt when hungry OR when we have a current target (continue hunting until prey is dead)
-          const hungerThreshold = carnivore.maxHunger * 0.7; // 70% hungry
-          const isHungry = carnivore.hunger > hungerThreshold;
-          const isFull = carnivore.hunger <= 0; // Stop hunting when completely full
+          const isHunting = carnivore.behaviorState === "hunting";
+          const isEating = carnivore.behaviorState === "eating";
+          const isFull = carnivore.hunger <= 0;
 
-          // Continue hunting current target even if not hungry, but only start hunting new targets when hungry
-          const hasCurrentTarget =
-            carnivore.currentTarget &&
-            nearbyHerbivores.find((p) => p.id === carnivore.currentTarget);
+          // Handle eating dead prey (higher priority)
+          if (isEating && nearbyDeadHerbivores.length > 0 && !isFull) {
+            const closestDeadPrey = nearbyDeadHerbivores.reduce((closest, prey) => {
+              const distance = carnivore.position.distanceTo(prey.position);
+              const closestDistance = carnivore.position.distanceTo(closest.position);
+              return distance < closestDistance ? prey : closest;
+            });
 
-          if (
-            nearbyHerbivores.length > 0 &&
-            (isHungry || hasCurrentTarget) &&
-            !isFull
-          ) {
-            let target: Herbivore | undefined;
+            // Add eating cooldown
+            const now = Date.now();
+            const lastEatTime = (carnivore as any).lastEatTime || 0;
+            const eatCooldown = 200;
 
-            // If we have a current target, try to stick with it
-            if (carnivore.currentTarget) {
-              // First check in nearby prey (alive, fleeing, or dead with weight)
-              target = nearbyHerbivores.find(
-                (prey) => prey.id === carnivore.currentTarget
-              );
-
-              // If not found in nearby prey, check in all entities (in case prey died and moved out of range)
-              if (!target) {
-                const allEntitiesTarget = entities.find(
-                  (e) =>
-                    e.id === carnivore.currentTarget &&
-                    e.type === EntityType.HERBIVORE
-                ) as Herbivore;
-
-                if (
-                  allEntitiesTarget &&
-                  allEntitiesTarget.state === EntityState.DEAD &&
-                  allEntitiesTarget.weight > 0
-                ) {
-                  // Target is dead but still has weight - keep it for eating
-                  target = allEntitiesTarget;
-                }
-              }
+            if (now - lastEatTime >= eatCooldown) {
+              carnivore.hunt(closestDeadPrey); // Use hunt method to eat dead prey
+              (carnivore as any).lastEatTime = now;
             }
+          }
+          // Handle hunting live prey
+          else if (isHunting && nearbyLiveHerbivores.length > 0 && !isFull) {
+            const closestLivePrey = nearbyLiveHerbivores.reduce((closest, prey) => {
+              const distance = carnivore.position.distanceTo(prey.position);
+              const closestDistance = carnivore.position.distanceTo(closest.position);
+              return distance < closestDistance ? prey : closest;
+            });
 
-            // If no current target, choose a new one (but ONLY if we don't have a current target)
-            if (!target) {
-              // Only choose a new target if we're hungry and don't have a current target
-              if (isHungry) {
-                // Choose the closest prey (same logic as AI)
-                let closestPrey = nearbyHerbivores[0];
+            // Add hunting cooldown
+            const now = Date.now();
+            const lastHuntTime = (carnivore as any).lastHuntTime || 0;
+            const huntCooldown = 200;
 
-                // If there are multiple prey, choose the closest one
-                if (nearbyHerbivores.length > 1) {
-                  let closestDistance = Infinity;
-                  for (const prey of nearbyHerbivores) {
-                    const distance = carnivore.position.distanceTo(
-                      prey.position
-                    );
-                    if (distance < closestDistance) {
-                      closestDistance = distance;
-                      closestPrey = prey;
-                    }
-                  }
-                }
-                target = closestPrey;
-
-                // Set the new target
-                if (target) {
-                  carnivore.currentTarget = target.id;
-                }
-              }
-            } else {
-              // We have a current target but it's not in nearbyHerbivores - check if it still exists in the broader entity list
-              const targetPrey = entities.find(
-                (e) => e.id === carnivore.currentTarget
-              ) as Herbivore;
-              if (
-                targetPrey &&
-                (targetPrey.state === EntityState.ALIVE ||
-                  targetPrey.state === EntityState.FLEEING ||
-                  (targetPrey.state === EntityState.DEAD &&
-                    targetPrey.weight > 0))
-              ) {
-                // Prey exists but is too far away - keep the target and let AI move toward it
-
-                target = targetPrey; // Keep the target for AI movement
-              } else {
-                // Prey is consumed or doesn't exist - clear the target
-
-                carnivore.clearTarget();
-                target = undefined; // Force choosing a new target
-              }
+            if (now - lastHuntTime >= huntCooldown) {
+              carnivore.hunt(closestLivePrey);
+              (carnivore as any).lastHuntTime = now;
             }
-
-            if (target) {
-              // Add hunting cooldown to prevent instant killing
-              const now = Date.now();
-              const lastHuntTime = (carnivore as any).lastHuntTime || 0;
-              const huntCooldown = 500; // 500ms between attacks
-
-              if (now - lastHuntTime >= huntCooldown) {
-                const distance = carnivore.position.distanceTo(target.position);
-                carnivore.hunt(target);
-                (carnivore as any).lastHuntTime = now;
-              }
-            }
-          } else {
-            carnivore.clearTarget();
           }
         }
       });
 
-      // Handle herbivore eating - only when hungry
+      // Handle herbivore eating - simplified for new state system
       entities.forEach((herbivoreEntity) => {
         if (
           herbivoreEntity.type === EntityType.HERBIVORE &&
-          herbivoreEntity.state === EntityState.ALIVE // Keep this check for life state
+          herbivoreEntity.state === EntityState.ALIVE
         ) {
           const herbivore = herbivoreEntity as Herbivore;
           const nearbyPlants = entities.filter(
@@ -514,106 +452,30 @@ export function GameProvider({ children }: GameProviderProps) {
               e.type === EntityType.PLANT &&
               (e.state === EntityState.ALIVE ||
                 (e.state === EntityState.DEAD && e.weight > 0)) &&
-              herbivore.position.distanceTo(e.position) <= 40 // Increased eating range for better plant detection
+              herbivore.position.distanceTo(e.position) <= 25 // Eating range
           ) as Plant[];
 
-          // Eat when in grazing state OR when we have a current target (continue eating until full or plant is dead)
-          const isGrazing = herbivore.behaviorState === "grazing";
-          const isFull = herbivore.hunger <= 0; // Stop eating when completely full
+          // Only eat when in EATING state and close to food
+          const isEating = herbivore.behaviorState === "eating";
+          const isFull = herbivore.hunger <= 0;
 
-          // Continue eating current target even if not in grazing state, but only start eating new targets when grazing
-          const hasCurrentTarget =
-            herbivore.currentTarget &&
-            nearbyPlants.find((p) => p.id === herbivore.currentTarget);
+          if (isEating && nearbyPlants.length > 0 && !isFull) {
+            // Find closest plant
+            const closestPlant = nearbyPlants.reduce((closest, plant) => {
+              const distance = herbivore.position.distanceTo(plant.position);
+              const closestDistance = herbivore.position.distanceTo(closest.position);
+              return distance < closestDistance ? plant : closest;
+            });
 
-          if (
-            nearbyPlants.length > 0 &&
-            (isGrazing || hasCurrentTarget) &&
-            !isFull
-          ) {
-            let target: Plant | undefined;
+            // Add eating cooldown
+            const now = Date.now();
+            const lastEatTime = (herbivore as any).lastEatTime || 0;
+            const eatCooldown = 200;
 
-            // If we have a current target, try to stick with it
-            if (herbivore.currentTarget) {
-              target = nearbyPlants.find(
-                (plant) => plant.id === herbivore.currentTarget
-              );
-              if (target) {
-              } else {
-              }
+            if (now - lastEatTime >= eatCooldown) {
+              herbivore.eat(closestPlant);
+              (herbivore as any).lastEatTime = now;
             }
-
-            // If no current target, choose a new one (but ONLY if we don't have a current target)
-            if (!target) {
-              // Choose the closest plant to eat
-              let closestPlant: Plant | undefined = nearbyPlants[0];
-              let closestDistance = closestPlant
-                ? herbivore.position.distanceTo(closestPlant.position)
-                : Infinity;
-
-              for (const plant of nearbyPlants) {
-                const distance = herbivore.position.distanceTo(plant.position);
-                if (distance < closestDistance) {
-                  closestDistance = distance;
-                  closestPlant = plant;
-                }
-              }
-              target = closestPlant;
-
-              // Set the new target
-              if (target) {
-                herbivore.currentTarget = target.id;
-              }
-            } else {
-              // We have a current target but it's not in nearbyPlants - check if it still exists in the broader entity list
-              const targetPlant = entities.find(
-                (e) => e.id === herbivore.currentTarget
-              ) as Plant;
-              if (
-                targetPlant &&
-                targetPlant.state === EntityState.ALIVE &&
-                targetPlant.weight > 0
-              ) {
-                // Plant exists but is too far away - keep the target and let AI move toward it
-
-                target = targetPlant; // Keep the target for AI movement
-              } else {
-                // Plant is consumed or doesn't exist - clear the target
-
-                herbivore.clearTarget();
-                target = undefined; // Force choosing a new target
-              }
-            }
-
-            if (target) {
-              // Add eating cooldown to prevent instant consumption
-              const now = Date.now();
-              const lastEatTime = (herbivore as any).lastEatTime || 0;
-              const eatCooldown = 200; // 200ms between eating ticks
-
-              if (now - lastEatTime >= eatCooldown) {
-                const distance = herbivore.position.distanceTo(target.position);
-
-                // Debug logging for eating behavior
-                if (Math.random() < 0.01) {
-                  console.log(`Eating Debug:`);
-                  console.log(`  Behavior State: ${herbivore.behaviorState}`);
-                  console.log(
-                    `  Hunger: ${(
-                      (herbivore.hunger / herbivore.maxHunger) *
-                      100
-                    ).toFixed(1)}%`
-                  );
-                  console.log(`  Distance to Plant: ${distance.toFixed(1)}`);
-                  console.log(`  Plant Weight: ${target.weight.toFixed(1)}`);
-                }
-
-                herbivore.eat(target);
-                (herbivore as any).lastEatTime = now;
-              }
-            }
-          } else {
-            herbivore.clearTarget();
           }
         }
       });
@@ -709,8 +571,8 @@ export function GameProvider({ children }: GameProviderProps) {
           const nearbyEntities = state.entities.filter(
             (e) =>
               e.id !== entity.id &&
-              e.state === EntityState.ALIVE &&
-              entity.position.distanceTo(e.position) <= 200 // Only consider entities within 200px
+              (e.state === EntityState.ALIVE || (e.state === EntityState.DEAD && e.weight > 0)) &&
+              entity.position.distanceTo(e.position) <= 400 // Include dead entities with weight for carnivores to eat
           );
 
           // Get room bounds for this entity
@@ -726,23 +588,13 @@ export function GameProvider({ children }: GameProviderProps) {
               }
             : undefined;
 
-          // Update position using AI with room bounds, biome, and difficulty
+          // Update position using simplified AI
           const aiResult = ai.update(
             deltaTime,
             entity.position,
             nearbyEntities,
             roomBounds,
             entityRoom?.biome,
-            entityRoom ? 1 : 0, // Default difficulty
-            entity.type === EntityType.CARNIVORE
-              ? (entity as Carnivore).huntingStyle
-              : undefined,
-            entity.type === EntityType.CARNIVORE
-              ? (entity as Carnivore).stealthLevel
-              : undefined,
-            entity.type === EntityType.CARNIVORE
-              ? (entity as Carnivore).detectionRange
-              : undefined,
             entity.type === EntityType.HERBIVORE ||
               entity.type === EntityType.CARNIVORE
               ? (entity as Herbivore | Carnivore).hunger

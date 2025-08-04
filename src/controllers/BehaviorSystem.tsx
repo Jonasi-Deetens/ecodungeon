@@ -1,76 +1,105 @@
 import { Position } from "../types/gameTypes";
 
-// ============================================================================
-// REALISTIC ANIMAL BEHAVIOR SYSTEM
-// Based on 20 years of game AI experience
-// ============================================================================
-
+// Simplified steering force interface
 export interface SteeringForce {
   x: number;
   y: number;
-  magnitude: number;
+  magnitude?: number;
 }
 
-// Enhanced steering behaviors for realistic movement
+// Basic steering behaviors
 export class SteeringBehaviors {
-  // Seek: Move towards a target with realistic acceleration
   static seek(
     position: Position,
     target: Position,
     maxSpeed: number,
     currentVelocity: { x: number; y: number } = { x: 0, y: 0 }
   ): SteeringForce {
-    const desired = {
+    const desiredVelocity = {
       x: target.x - position.x,
       y: target.y - position.y,
     };
 
-    const distance = Math.sqrt(desired.x * desired.x + desired.y * desired.y);
+    const distance = Math.sqrt(desiredVelocity.x * desiredVelocity.x + desiredVelocity.y * desiredVelocity.y);
 
     if (distance > 0) {
-      desired.x /= distance;
-      desired.y /= distance;
-      desired.x *= maxSpeed;
-      desired.y *= maxSpeed;
+      desiredVelocity.x = (desiredVelocity.x / distance) * maxSpeed;
+      desiredVelocity.y = (desiredVelocity.y / distance) * maxSpeed;
     }
 
-    // Calculate steering force (desired velocity - current velocity)
     return {
-      x: desired.x - currentVelocity.x,
-      y: desired.y - currentVelocity.y,
-      magnitude: distance,
+      x: desiredVelocity.x - currentVelocity.x,
+      y: desiredVelocity.y - currentVelocity.y,
     };
   }
 
-  // Flee: Move away from a target with panic behavior
   static flee(
     position: Position,
     target: Position,
     maxSpeed: number,
     currentVelocity: { x: number; y: number } = { x: 0, y: 0 }
   ): SteeringForce {
-    const desired = {
+    const desiredVelocity = {
       x: position.x - target.x,
       y: position.y - target.y,
     };
 
-    const distance = Math.sqrt(desired.x * desired.x + desired.y * desired.y);
+    const distance = Math.sqrt(desiredVelocity.x * desiredVelocity.x + desiredVelocity.y * desiredVelocity.y);
 
     if (distance > 0) {
-      desired.x /= distance;
-      desired.y /= distance;
-      desired.x *= maxSpeed * 1.5; // Panic speed
-      desired.y *= maxSpeed * 1.5;
+      desiredVelocity.x = (desiredVelocity.x / distance) * maxSpeed;
+      desiredVelocity.y = (desiredVelocity.y / distance) * maxSpeed;
     }
 
     return {
-      x: desired.x - currentVelocity.x,
-      y: desired.y - currentVelocity.y,
-      magnitude: distance,
+      x: desiredVelocity.x - currentVelocity.x,
+      y: desiredVelocity.y - currentVelocity.y,
     };
   }
 
-  // Arrive: Seek with realistic deceleration
+  static wander(
+    currentVelocity: { x: number; y: number },
+    wanderRadius: number = 50,
+    wanderDistance: number = 100,
+    wanderJitter: number = 10
+  ): SteeringForce {
+    // Create a circle in front of the agent
+    const circleCenter = {
+      x: currentVelocity.x,
+      y: currentVelocity.y,
+    };
+
+    const circleCenterLength = Math.sqrt(circleCenter.x * circleCenter.x + circleCenter.y * circleCenter.y);
+    if (circleCenterLength > 0) {
+      circleCenter.x = (circleCenter.x / circleCenterLength) * wanderDistance;
+      circleCenter.y = (circleCenter.y / circleCenterLength) * wanderDistance;
+    }
+
+    // Add random displacement
+    const displacement = {
+      x: (Math.random() - 0.5) * 2 * wanderJitter,
+      y: (Math.random() - 0.5) * 2 * wanderJitter,
+    };
+
+    // Move the circle center by the displacement
+    const wanderTarget = {
+      x: circleCenter.x + displacement.x,
+      y: circleCenter.y + displacement.y,
+    };
+
+    // Project the target back onto the circle
+    const targetLength = Math.sqrt(wanderTarget.x * wanderTarget.x + wanderTarget.y * wanderTarget.y);
+    if (targetLength > 0) {
+      wanderTarget.x = (wanderTarget.x / targetLength) * wanderRadius;
+      wanderTarget.y = (wanderTarget.y / targetLength) * wanderRadius;
+    }
+
+    return {
+      x: wanderTarget.x,
+      y: wanderTarget.y,
+    };
+  }
+
   static arrive(
     position: Position,
     target: Position,
@@ -78,422 +107,89 @@ export class SteeringBehaviors {
     slowingRadius: number = 100,
     currentVelocity: { x: number; y: number } = { x: 0, y: 0 }
   ): SteeringForce {
-    const desired = {
+    const desiredVelocity = {
       x: target.x - position.x,
       y: target.y - position.y,
     };
 
-    const distance = Math.sqrt(desired.x * desired.x + desired.y * desired.y);
+    const distance = Math.sqrt(desiredVelocity.x * desiredVelocity.x + desiredVelocity.y * desiredVelocity.y);
 
     if (distance > 0) {
-      desired.x /= distance;
-      desired.y /= distance;
-
+      let targetSpeed = maxSpeed;
       if (distance < slowingRadius) {
-        // Decelerate when close to target
-        const speed = maxSpeed * (distance / slowingRadius);
-        desired.x *= speed;
-        desired.y *= speed;
-      } else {
-        desired.x *= maxSpeed;
-        desired.y *= maxSpeed;
+        targetSpeed = maxSpeed * (distance / slowingRadius);
       }
+
+      desiredVelocity.x = (desiredVelocity.x / distance) * targetSpeed;
+      desiredVelocity.y = (desiredVelocity.y / distance) * targetSpeed;
     }
 
     return {
-      x: desired.x - currentVelocity.x,
-      y: desired.y - currentVelocity.y,
-      magnitude: distance,
+      x: desiredVelocity.x - currentVelocity.x,
+      y: desiredVelocity.y - currentVelocity.y,
     };
-  }
-
-  // Wander: Move in a random direction with natural variation
-  static wander(
-    currentVelocity: { x: number; y: number },
-    wanderRadius: number = 50,
-    wanderDistance: number = 100,
-    wanderJitter: number = 10
-  ): SteeringForce {
-    // If current velocity is zero or very small, start with a random direction
-    let direction = { x: currentVelocity.x, y: currentVelocity.y };
-    const velocityMagnitude = Math.sqrt(
-      currentVelocity.x * currentVelocity.x +
-        currentVelocity.y * currentVelocity.y
-    );
-
-    if (velocityMagnitude < 0.1) {
-      // Start with a random direction
-      const randomAngle = Math.random() * Math.PI * 2;
-      direction = {
-        x: Math.cos(randomAngle),
-        y: Math.sin(randomAngle),
-      };
-    } else {
-      // Normalize current velocity
-      direction.x /= velocityMagnitude;
-      direction.y /= velocityMagnitude;
-    }
-
-    // Add random jitter to direction
-    const jitteredDirection = {
-      x: direction.x + (Math.random() - 0.5) * wanderJitter * 0.1,
-      y: direction.y + (Math.random() - 0.5) * wanderJitter * 0.1,
-    };
-
-    // Normalize
-    const length = Math.sqrt(
-      jitteredDirection.x * jitteredDirection.x +
-        jitteredDirection.y * jitteredDirection.y
-    );
-    if (length > 0) {
-      jitteredDirection.x /= length;
-      jitteredDirection.y /= length;
-    }
-
-    // Create wander target in front of the creature
-    const wanderTarget = {
-      x: jitteredDirection.x * wanderRadius,
-      y: jitteredDirection.y * wanderRadius,
-    };
-
-    // Calculate steering force towards the wander target
-    const steering = {
-      x: wanderTarget.x - currentVelocity.x,
-      y: wanderTarget.y - currentVelocity.y,
-    };
-
-    // Normalize and scale the steering force
-    const steeringMagnitude = Math.sqrt(
-      steering.x * steering.x + steering.y * steering.y
-    );
-    if (steeringMagnitude > 0) {
-      // Use a much stronger scaling factor to ensure visible movement
-      const scaleFactor = wanderRadius * 2.0; // Increased from 0.5 to 2.0 (4x stronger)
-      steering.x = (steering.x / steeringMagnitude) * scaleFactor;
-      steering.y = (steering.y / steeringMagnitude) * scaleFactor;
-    }
-
-    return {
-      x: steering.x,
-      y: steering.y,
-      magnitude: Math.sqrt(steering.x * steering.x + steering.y * steering.y),
-    };
-  }
-
-  // Separation: Avoid crowding neighbors
-  static separation(
-    position: Position,
-    neighbors: Position[],
-    separationRadius: number = 50
-  ): SteeringForce {
-    const steering = { x: 0, y: 0 };
-    let neighborCount = 0;
-
-    for (const neighbor of neighbors) {
-      const distance = position.distanceTo(neighbor);
-
-      if (distance > 0 && distance < separationRadius) {
-        const diff = {
-          x: position.x - neighbor.x,
-          y: position.y - neighbor.y,
-        };
-
-        // Weight by distance (closer neighbors have more influence)
-        const weight = 1 - distance / separationRadius;
-        diff.x *= weight;
-        diff.y *= weight;
-
-        steering.x += diff.x;
-        steering.y += diff.y;
-        neighborCount++;
-      }
-    }
-
-    if (neighborCount > 0) {
-      steering.x /= neighborCount;
-      steering.y /= neighborCount;
-    }
-
-    return {
-      x: steering.x,
-      y: steering.y,
-      magnitude: Math.sqrt(steering.x * steering.x + steering.y * steering.y),
-    };
-  }
-
-  // Alignment: Match velocity with neighbors (flocking)
-  static alignment(
-    neighbors: Position[],
-    currentVelocity: { x: number; y: number }
-  ): SteeringForce {
-    const steering = { x: 0, y: 0 };
-    let neighborCount = 0;
-
-    for (const neighbor of neighbors) {
-      // In a real implementation, you'd have velocity data
-      // For now, we'll use position differences as a proxy
-      steering.x += neighbor.x;
-      steering.y += neighbor.y;
-      neighborCount++;
-    }
-
-    if (neighborCount > 0) {
-      steering.x /= neighborCount;
-      steering.y /= neighborCount;
-
-      // Normalize and scale
-      const length = Math.sqrt(
-        steering.x * steering.x + steering.y * steering.y
-      );
-      if (length > 0) {
-        steering.x /= length;
-        steering.y /= length;
-      }
-    }
-
-    return {
-      x: steering.x,
-      y: steering.y,
-      magnitude: Math.sqrt(steering.x * steering.x + steering.y * steering.y),
-    };
-  }
-
-  // Cohesion: Move toward center of neighbors
-  static cohesion(position: Position, neighbors: Position[]): SteeringForce {
-    const center = { x: 0, y: 0 };
-    let neighborCount = 0;
-
-    for (const neighbor of neighbors) {
-      center.x += neighbor.x;
-      center.y += neighbor.y;
-      neighborCount++;
-    }
-
-    if (neighborCount > 0) {
-      center.x /= neighborCount;
-      center.y /= neighborCount;
-
-      return this.seek(position, new Position(center.x, center.y), 1);
-    }
-
-    return { x: 0, y: 0, magnitude: 0 };
-  }
-
-  // Avoid obstacles/walls with realistic behavior
-  static avoidWalls(
-    position: Position,
-    roomBounds: { minX: number; maxX: number; minY: number; maxY: number },
-    lookAheadDistance: number = 50
-  ): SteeringForce {
-    const steering = { x: 0, y: 0 };
-    const margin = 30; // Distance from wall to start avoiding
-
-    // Check if heading toward walls
-    if (position.x < roomBounds.minX + margin) {
-      steering.x += 1; // Move right
-    } else if (position.x > roomBounds.maxX - margin) {
-      steering.x -= 1; // Move left
-    }
-
-    if (position.y < roomBounds.minY + margin) {
-      steering.y += 1; // Move down
-    } else if (position.y > roomBounds.maxY - margin) {
-      steering.y -= 1; // Move up
-    }
-
-    return {
-      x: steering.x,
-      y: steering.y,
-      magnitude: Math.sqrt(steering.x * steering.x + steering.y * steering.y),
-    };
-  }
-
-  // Pursue: Predict where target will be and intercept
-  static pursue(
-    position: Position,
-    target: Position,
-    targetVelocity: { x: number; y: number },
-    maxSpeed: number,
-    currentVelocity: { x: number; y: number } = { x: 0, y: 0 }
-  ): SteeringForce {
-    const distance = position.distanceTo(target);
-    const timeToReach = distance / maxSpeed;
-
-    // Predict future position
-    const futurePosition = new Position(
-      target.x + targetVelocity.x * timeToReach,
-      target.y + targetVelocity.y * timeToReach
-    );
-
-    return this.seek(position, futurePosition, maxSpeed, currentVelocity);
-  }
-
-  // Evade: Predict where predator will be and avoid
-  static evade(
-    position: Position,
-    predator: Position,
-    predatorVelocity: { x: number; y: number },
-    maxSpeed: number,
-    currentVelocity: { x: number; y: number } = { x: 0, y: 0 }
-  ): SteeringForce {
-    const distance = position.distanceTo(predator);
-    const timeToReach = distance / maxSpeed;
-
-    // Predict future position
-    const futurePosition = new Position(
-      predator.x + predatorVelocity.x * timeToReach,
-      predator.y + predatorVelocity.y * timeToReach
-    );
-
-    return this.flee(position, futurePosition, maxSpeed, currentVelocity);
   }
 }
 
-// ============================================================================
-// ENHANCED STATE MACHINE FOR REALISTIC BEHAVIOR
-// ============================================================================
-
+// Simplified behavior states - only the essential ones
 export enum BehaviorState {
-  // Core survival states
-  SLEEPING = "sleeping",
-  RESTING = "resting",
-  GRAZING = "grazing",
+  WANDERING = "wandering",
+  GRAZING = "grazing", 
+  EATING = "eating",
   HUNTING = "hunting",
   FLEEING = "fleeing",
-
-  // Social states
-  SOCIALIZING = "socializing",
-  COURTSHIP = "courtship",
-  MATING = "mating",
-  CARING_FOR_YOUNG = "caring_for_young",
-
-  // Territory states
-  PATROLLING_TERRITORY = "patrolling_territory",
-  MARKING_TERRITORY = "marking_territory",
-  DEFENDING_TERRITORY = "defending_territory",
-
-  // Movement states
-  WANDERING = "wandering",
-  MIGRATING = "migrating",
-  EXPLORING = "exploring",
-
-  // Special states
-  GROOMING = "grooming",
-  PLAYING = "playing",
-  INVESTIGATING = "investigating",
-
-  // Health states
-  INJURED = "injured",
-  SICK = "sick",
-  DEAD = "dead",
+  RESTING = "resting",
 }
 
+// Simplified state configuration
 export interface BehaviorStateConfig {
   state: BehaviorState;
-  priority: number;
-  duration: { min: number; max: number };
-  energyCost: number;
+  priority: number; // Higher number = higher priority
+  duration: { min: number; max: number }; // How long to stay in this state
+  energyCost: number; // Energy consumed per second
   conditions: {
-    hunger?: { min: number; max: number };
-    energy?: { min: number; max: number };
-    health?: { min: number; max: number };
-    nearbyPredators?: number;
-    nearbyFood?: number;
-    nearbyAllies?: number;
-    timeOfDay?: { start: number; end: number };
-    weather?: string[];
-    season?: string[];
+    hunger?: { min: number; max: number }; // Hunger percentage range
+    energy?: { min: number; max: number }; // Energy percentage range
+    health?: { min: number; max: number }; // Health percentage range
+    nearbyPredators?: number; // Minimum predators required
+    nearbyFood?: number; // Minimum food required
+    nearbyPrey?: number; // Minimum prey required (for carnivores)
+    isCloseToFood?: boolean; // Must be close to food
+    isCloseToPrey?: boolean; // Must be close to prey (for carnivores)
   };
-  transitions: {
-    to: BehaviorState;
-    conditions: any;
-    probability: number;
-  }[];
 }
 
-// Enhanced memory system for realistic behavior
+// Simplified personality traits
+export interface PersonalityTraits {
+  boldness: number; // 0-1: How willing to take risks
+  sociability: number; // 0-1: How social
+  aggression: number; // 0-1: How aggressive
+  energy: number; // 0-1: How energetic
+}
+
+// Simplified memory system
 export interface CreatureMemory {
-  // Spatial memory
-  lastKnownFoodPositions: {
-    position: Position;
-    timestamp: number;
-    value: number;
-  }[];
-  lastKnownPredatorPositions: {
-    position: Position;
-    timestamp: number;
-    threat: number;
-  }[];
-  lastKnownPreyPositions: {
-    position: Position;
-    timestamp: number;
-    success: boolean;
-  }[];
-  successfulHuntingSpots: {
-    position: Position;
-    successRate: number;
-    lastVisit: number;
-  }[];
-  dangerousAreas: {
-    position: Position;
-    threatLevel: number;
-    lastVisit: number;
-  }[];
-
-  // Social memory
-  knownIndividuals: { id: string; relationship: number; lastSeen: number }[];
-  packMembers: { id: string; role: string; lastSeen: number }[];
-
-  // Territory memory
-  territoryBoundaries: Position[];
-  territoryMarkers: { position: Position; timestamp: number }[];
-
-  // Temporal memory
-  dailyRoutines: {
-    time: number;
-    behavior: BehaviorState;
-    location: Position;
-  }[];
-  seasonalPatterns: { season: string; behaviors: BehaviorState[] }[];
-
-  // Learning
-  learnedBehaviors: {
-    behavior: string;
-    successRate: number;
-    lastUsed: number;
-  }[];
-
+  lastKnownFoodPositions: { position: Position; timestamp: number }[];
+  lastKnownPredatorPositions: { position: Position; timestamp: number }[];
+  lastKnownPreyPositions: { position: Position; timestamp: number }[];
   lastUpdateTime: number;
 }
 
-// Territory system for realistic animal behavior
-export interface Territory {
-  center: Position;
-  radius: number;
-  boundaries: Position[];
-  resources: { type: string; position: Position; value: number }[];
-  threats: { type: string; position: Position; threat: number }[];
-  lastPatrolled: number;
-  ownership: string; // Entity ID
-}
-
-// Enhanced state machine with realistic transitions
+// Simplified behavior state machine
 export class BehaviorStateMachine {
   private currentState: BehaviorState = BehaviorState.WANDERING;
   private stateTimer: number = 0;
   private states: BehaviorStateConfig[];
   private memory: CreatureMemory;
-  private territory: Territory | null = null;
-  private energy: number = 100;
-  private maxEnergy: number = 100;
   private personality: PersonalityTraits;
+  private currentTarget: Position | null = null;
 
   constructor(
     states: BehaviorStateConfig[],
     memory: CreatureMemory,
     personality: PersonalityTraits
   ) {
-    this.states = states.sort((a, b) => b.priority - a.priority);
+    this.states = states;
     this.memory = memory;
     this.personality = personality;
   }
@@ -509,222 +205,147 @@ export class BehaviorStateMachine {
       maxEnergy: number;
       nearbyPredators: number;
       nearbyFood: number;
-      nearbyAllies: number;
-      timeOfDay: number;
-      weather: string;
-      season: string;
+      nearbyPrey?: number;
+      isCloseToFood?: boolean;
+      isCloseToPrey?: boolean;
     }
   ): BehaviorState {
+    // Update state timer
     this.stateTimer += deltaTime;
-    this.energy = context.energy;
-    this.maxEnergy = context.maxEnergy;
 
-    // Update memory
-    this.updateMemory(context);
-
-    // Debug logging for state machine (5% frequency)
-    if (Math.random() < 0.05) {
-      console.log(`State Machine Internal Debug:`);
-      console.log(`  Current State: ${this.currentState}`);
-      console.log(`  State Timer: ${this.stateTimer.toFixed(2)}s`);
-      console.log(
-        `  Context: predators=${context.nearbyPredators}, food=${
-          context.nearbyFood
-        }, hunger=${((context.hunger / context.maxHunger) * 100).toFixed(1)}%`
-      );
-    }
-
-    // Check for emergency transitions (highest priority)
+    // Check for emergency transitions first (highest priority)
     const emergencyState = this.checkEmergencyTransitions(context);
     if (emergencyState) {
-      if (this.currentState !== emergencyState) {
-        console.log(
-          `Emergency Transition: ${this.currentState} -> ${emergencyState}`
-        );
-        this.currentState = emergencyState;
-        this.stateTimer = 0;
+      this.transitionToState(emergencyState);
+      return emergencyState;
+    }
+
+    // Check if current state conditions are still met
+    const currentConfig = this.states.find(s => s.state === this.currentState);
+    if (currentConfig && this.stateTimer >= currentConfig.duration.min) {
+      if (!this.shouldStayInState(currentConfig, context)) {
+        // Find a better state to transition to
+        const newState = this.findBestState(context);
+        if (newState && newState !== this.currentState) {
+          this.transitionToState(newState);
+          return newState;
+        }
       }
-      return this.currentState;
     }
 
-    // Check normal state transitions
-    const newState = this.checkNormalTransitions(context);
-    if (newState && newState !== this.currentState) {
-      console.log(`Normal Transition: ${this.currentState} -> ${newState}`);
-      this.currentState = newState;
-      this.stateTimer = 0;
-    }
-
-    // Check if current state has expired
-    const currentConfig = this.states.find(
-      (s) => s.state === this.currentState
-    );
-    if (currentConfig && this.stateTimer > currentConfig.duration.max) {
-      // Fall back to appropriate default state
-      const defaultState = this.getDefaultState(context);
-      console.log(`State Expired: ${this.currentState} -> ${defaultState}`);
-      this.currentState = defaultState;
-      this.stateTimer = 0;
+    // Check if minimum duration has passed and we should transition
+    if (currentConfig && this.stateTimer >= currentConfig.duration.max) {
+      const newState = this.findBestState(context);
+      if (newState && newState !== this.currentState) {
+        this.transitionToState(newState);
+        return newState;
+      }
     }
 
     return this.currentState;
   }
 
   private checkEmergencyTransitions(context: any): BehaviorState | null {
-    // Flee from immediate danger
-    if (
-      context.nearbyPredators > 0 &&
-      context.health < context.maxHealth * 0.3
-    ) {
+    // FLEEING has highest priority - if predators nearby, flee immediately
+    if (context.nearbyPredators > 0) {
       return BehaviorState.FLEEING;
     }
 
-    // Sleep when extremely tired
-    if (context.energy < context.maxEnergy * 0.1) {
-      return BehaviorState.SLEEPING;
-    }
-
-    // Rest when injured
-    if (context.health < context.maxHealth * 0.5) {
+    // RESTING if energy is critically low
+    if (context.energy < 20) {
       return BehaviorState.RESTING;
     }
 
     return null;
   }
 
-  private checkNormalTransitions(context: any): BehaviorState | null {
-    // Get current state configuration
-    const currentConfig = this.states.find(
-      (s) => s.state === this.currentState
-    );
+  private shouldStayInState(stateConfig: BehaviorStateConfig, context: any): boolean {
+    const hungerPercent = context.hunger / context.maxHunger;
+    const energyPercent = context.energy / context.maxEnergy;
+    const healthPercent = context.health / context.maxHealth;
 
-    // Don't allow transitions until minimum duration has passed
-    if (currentConfig && this.stateTimer < currentConfig.duration.min) {
-      return null;
-    }
-
-    // Sort states by priority (highest first)
-    const sortedStates = [...this.states].sort(
-      (a, b) => b.priority - a.priority
-    );
-
-    for (const stateConfig of sortedStates) {
-      // Skip if this is the current state
-      if (stateConfig.state === this.currentState) {
-        continue;
-      }
-
-      if (this.shouldTransitionToState(stateConfig, context)) {
-        return stateConfig.state;
-      }
-    }
-    return null;
-  }
-
-  private shouldTransitionToState(
-    stateConfig: BehaviorStateConfig,
-    context: any
-  ): boolean {
-    const conditions = stateConfig.conditions;
-
-    // Check all conditions
-    if (conditions.hunger) {
-      const hungerPercent = context.hunger / context.maxHunger;
-      if (
-        hungerPercent < conditions.hunger.min ||
-        hungerPercent > conditions.hunger.max
-      ) {
+    // Check hunger conditions
+    if (stateConfig.conditions.hunger) {
+      if (hungerPercent < stateConfig.conditions.hunger.min || 
+          hungerPercent > stateConfig.conditions.hunger.max) {
         return false;
       }
     }
 
-    if (conditions.energy) {
-      const energyPercent = context.energy / context.maxEnergy;
-      if (
-        energyPercent < conditions.energy.min ||
-        energyPercent > conditions.energy.max
-      ) {
+    // Check energy conditions
+    if (stateConfig.conditions.energy) {
+      if (energyPercent < stateConfig.conditions.energy.min || 
+          energyPercent > stateConfig.conditions.energy.max) {
         return false;
       }
     }
 
-    if (conditions.health) {
-      const healthPercent = context.health / context.maxHealth;
-      if (
-        healthPercent < conditions.health.min ||
-        healthPercent > conditions.health.max
-      ) {
+    // Check health conditions
+    if (stateConfig.conditions.health) {
+      if (healthPercent < stateConfig.conditions.health.min || 
+          healthPercent > stateConfig.conditions.health.max) {
         return false;
       }
     }
 
-    if (
-      conditions.nearbyPredators !== undefined &&
-      context.nearbyPredators < conditions.nearbyPredators
-    ) {
-      return false;
-    }
-
-    if (
-      conditions.nearbyFood !== undefined &&
-      context.nearbyFood < conditions.nearbyFood
-    ) {
-      return false;
-    }
-
-    if (
-      conditions.nearbyAllies !== undefined &&
-      context.nearbyAllies < conditions.nearbyAllies
-    ) {
-      return false;
-    }
-
-    if (conditions.timeOfDay) {
-      const time = context.timeOfDay;
-      if (
-        time < conditions.timeOfDay.start ||
-        time > conditions.timeOfDay.end
-      ) {
+    // Check nearby predators
+    if (stateConfig.conditions.nearbyPredators !== undefined) {
+      if (context.nearbyPredators < stateConfig.conditions.nearbyPredators) {
         return false;
       }
     }
 
-    if (conditions.weather && !conditions.weather.includes(context.weather)) {
-      return false;
+    // Check nearby food
+    if (stateConfig.conditions.nearbyFood !== undefined) {
+      if (context.nearbyFood < stateConfig.conditions.nearbyFood) {
+        return false;
+      }
     }
 
-    if (conditions.season && !conditions.season.includes(context.season)) {
-      return false;
+    // Check nearby prey (for carnivores)
+    if (stateConfig.conditions.nearbyPrey !== undefined) {
+      if (context.nearbyPrey < stateConfig.conditions.nearbyPrey) {
+        return false;
+      }
+    }
+
+    // Check if close to food
+    if (stateConfig.conditions.isCloseToFood !== undefined) {
+      if (context.isCloseToFood !== stateConfig.conditions.isCloseToFood) {
+        return false;
+      }
+    }
+
+    // Check if close to prey (for carnivores)
+    if (stateConfig.conditions.isCloseToPrey !== undefined) {
+      if (context.isCloseToPrey !== stateConfig.conditions.isCloseToPrey) {
+        return false;
+      }
     }
 
     return true;
   }
 
-  private getDefaultState(context: any): BehaviorState {
-    // Choose appropriate default based on context
-    if (context.energy < context.maxEnergy * 0.3) {
-      return BehaviorState.RESTING;
+  private findBestState(context: any): BehaviorState {
+    // Sort states by priority (highest first)
+    const sortedStates = [...this.states].sort((a, b) => b.priority - a.priority);
+
+    for (const stateConfig of sortedStates) {
+      if (this.shouldStayInState(stateConfig, context)) {
+        return stateConfig.state;
+      }
     }
-    if (context.hunger > context.maxHunger * 0.7) {
-      return BehaviorState.GRAZING;
-    }
+
+    // Default to wandering if no other state is suitable
     return BehaviorState.WANDERING;
   }
 
-  private updateMemory(context: any): void {
-    // Update temporal patterns
-    this.memory.dailyRoutines.push({
-      time: context.timeOfDay,
-      behavior: this.currentState,
-      location: new Position(0, 0), // Would be actual position
-    });
-
-    // Keep only recent routines
-    if (this.memory.dailyRoutines.length > 24) {
-      this.memory.dailyRoutines.shift();
+  private transitionToState(newState: BehaviorState): void {
+    if (newState !== this.currentState) {
+      console.log(`State transition: ${this.currentState} -> ${newState}`);
+      this.currentState = newState;
+      this.stateTimer = 0;
     }
-
-    this.memory.lastUpdateTime = Date.now();
   }
 
   getCurrentState(): BehaviorState {
@@ -735,356 +356,139 @@ export class BehaviorStateMachine {
     return this.memory;
   }
 
-  getTerritory(): Territory | null {
-    return this.territory;
+  setTarget(target: Position | null): void {
+    this.currentTarget = target;
+  }
+
+  getTarget(): Position | null {
+    return this.currentTarget;
   }
 }
 
-// Personality system for individual variation
-export interface PersonalityTraits {
-  boldness: number; // 0-1: How willing to take risks
-  sociability: number; // 0-1: How social the animal is
-  curiosity: number; // 0-1: How exploratory
-  aggression: number; // 0-1: How aggressive
-  intelligence: number; // 0-1: How smart/adaptable
-  energy: number; // 0-1: How energetic
-  territoriality: number; // 0-1: How territorial
-  loyalty: number; // 0-1: How loyal to pack/family
-}
-
-// Enhanced flocking behavior with personality
-export class FlockingBehavior {
-  static calculateFlockingForce(
-    position: Position,
-    velocity: { x: number; y: number },
-    neighbors: Position[],
-    personality: PersonalityTraits,
-    separationRadius: number = 50,
-    alignmentRadius: number = 100,
-    cohesionRadius: number = 150,
-    maxSpeed: number = 1
-  ): SteeringForce {
-    const separation = SteeringBehaviors.separation(
-      position,
-      neighbors,
-      separationRadius
-    );
-    const alignment = SteeringBehaviors.alignment(neighbors, velocity);
-    const cohesion = SteeringBehaviors.cohesion(position, neighbors);
-
-    // Weight forces based on personality
-    const separationWeight = 1.5 + personality.territoriality * 0.5;
-    const alignmentWeight = personality.sociability;
-    const cohesionWeight = personality.sociability * 0.8;
-
-    const weightedSeparation = {
-      x: separation.x * separationWeight,
-      y: separation.y * separationWeight,
-    };
-    const weightedAlignment = {
-      x: alignment.x * alignmentWeight,
-      y: alignment.y * alignmentWeight,
-    };
-    const weightedCohesion = {
-      x: cohesion.x * cohesionWeight,
-      y: cohesion.y * cohesionWeight,
-    };
-
-    // Combine forces
-    const combined = {
-      x: weightedSeparation.x + weightedAlignment.x + weightedCohesion.x,
-      y: weightedSeparation.y + weightedAlignment.y + weightedCohesion.y,
-    };
-
-    // Limit maximum force
-    const magnitude = Math.sqrt(
-      combined.x * combined.x + combined.y * combined.y
-    );
-    if (magnitude > maxSpeed) {
-      combined.x = (combined.x / magnitude) * maxSpeed;
-      combined.y = (combined.y / magnitude) * maxSpeed;
-    }
-
-    return {
-      x: combined.x,
-      y: combined.y,
-      magnitude,
-    };
-  }
-}
-
-// ============================================================================
-// REALISTIC BEHAVIOR FACTORIES
-// ============================================================================
-
+// Simplified behavior factory
 export class BehaviorFactory {
   static createHerbivoreBehaviors(): BehaviorStateConfig[] {
     return [
-      // Emergency states (highest priority)
       {
         state: BehaviorState.FLEEING,
-        priority: 10,
+        priority: 10, // Highest priority
         duration: { min: 2, max: 8 },
         energyCost: 15,
-        conditions: { nearbyPredators: 1, energy: { min: 0.1, max: 1.0 } },
-        transitions: [],
-      },
-      {
-        state: BehaviorState.SLEEPING,
-        priority: 9,
-        duration: { min: 4, max: 8 },
-        energyCost: -10, // Regain energy
         conditions: {
-          energy: { min: 0, max: 0.2 },
-          timeOfDay: { start: 22, end: 6 },
+          nearbyPredators: 1, // At least 1 predator nearby
         },
-        transitions: [],
-      },
-      {
-        state: BehaviorState.INJURED,
-        priority: 8,
-        duration: { min: 10, max: 30 },
-        energyCost: 5,
-        conditions: { health: { min: 0, max: 0.3 } },
-        transitions: [],
-      },
-
-      // Survival states
-      {
-        state: BehaviorState.GRAZING,
-        priority: 8, // Increased from 7 to 8 (higher than social states)
-        duration: { min: 10, max: 25 }, // Increased from 5-15 to 10-25 seconds
-        energyCost: 8,
-        conditions: {
-          hunger: { min: 0.1, max: 1.0 }, // Lowered from 0.2 to 0.1 (10% to 100% hunger)
-          energy: { min: 0.2, max: 1.0 },
-          nearbyFood: 1, // Require at least 1 plant nearby to graze
-        },
-        transitions: [],
-      },
-      {
-        state: BehaviorState.EXPLORING,
-        priority: 6,
-        duration: { min: 8, max: 20 },
-        energyCost: 10,
-        conditions: {
-          hunger: { min: 0.08, max: 1.0 }, // Lowered from 0.15 to 0.08 (8% to 100% hunger)
-          energy: { min: 0.3, max: 1.0 },
-          nearbyFood: 0, // No food nearby - actively search
-        },
-        transitions: [],
       },
       {
         state: BehaviorState.RESTING,
-        priority: 5,
-        duration: { min: 3, max: 8 },
-        energyCost: -5,
-        conditions: { energy: { min: 0, max: 0.5 } },
-        transitions: [],
-      },
-
-      // Social states
-      {
-        state: BehaviorState.SOCIALIZING,
-        priority: 3, // Lowered from 5 to 3
-        duration: { min: 0.5, max: 6 }, // Reduced from 2 to 0.5 seconds
-        energyCost: 3,
+        priority: 8,
+        duration: { min: 3, max: 10 },
+        energyCost: -10, // Regain energy
         conditions: {
-          nearbyAllies: 2,
-          health: { min: 0.6, max: 1.0 },
-          energy: { min: 0.3, max: 1.0 },
+          energy: { min: 0, max: 0.3 }, // Low energy
         },
-        transitions: [],
       },
       {
-        state: BehaviorState.COURTSHIP,
-        priority: 2, // Lowered from 4 to 2
-        duration: { min: 0.5, max: 8 }, // Reduced from 3 to 0.5 seconds
-        energyCost: 5,
+        state: BehaviorState.EATING,
+        priority: 7,
+        duration: { min: 0.5, max: 8 }, // Reduced min duration from 2s to 0.5s
+        energyCost: 2,
         conditions: {
-          nearbyAllies: 1,
-          health: { min: 0.8, max: 1.0 },
-          energy: { min: 0.7, max: 1.0 },
+          hunger: { min: 0.3, max: 1.0 }, // Start eating at 30% hunger (was 50%)
+          nearbyFood: 1, // Food nearby
+          isCloseToFood: true, // Must be close to food
         },
-        transitions: [],
       },
-
-      // Territory states
       {
-        state: BehaviorState.PATROLLING_TERRITORY,
-        priority: 2, // Lowered from 3
-        duration: { min: 0.5, max: 10 }, // Reduced from 4 to 0.5 seconds
-        energyCost: 6,
+        state: BehaviorState.GRAZING,
+        priority: 6,
+        duration: { min: 1, max: 15 }, // Reduced min duration from 3s to 1s
+        energyCost: 8,
         conditions: {
-          energy: { min: 0.4, max: 1.0 },
-          health: { min: 0.7, max: 1.0 },
+          hunger: { min: 0.4, max: 1.0 }, // Start grazing at 40% hunger (was 60%)
+          nearbyFood: 1, // Food nearby
+          isCloseToFood: false, // Only graze when NOT close to food (prevents flickering)
         },
-        transitions: [],
       },
-
-      // Movement states
       {
         state: BehaviorState.WANDERING,
-        priority: 2,
-        duration: { min: 0.5, max: 8 }, // Reduced from 3 to 0.5 seconds for faster transitions
+        priority: 1, // Lowest priority
+        duration: { min: 2, max: 10 },
         energyCost: 4,
-        conditions: { energy: { min: 0.2, max: 1.0 } },
-        transitions: [],
-      },
-      {
-        state: BehaviorState.EXPLORING,
-        priority: 1,
-        duration: { min: 2, max: 6 },
-        energyCost: 5,
-        conditions: { energy: { min: 0.5, max: 1.0 } },
-        transitions: [],
+        conditions: {
+          energy: { min: 0.2, max: 1.0 }, // Not too tired
+        },
       },
     ];
   }
 
   static createCarnivoreBehaviors(): BehaviorStateConfig[] {
     return [
-      // Emergency states
       {
         state: BehaviorState.FLEEING,
-        priority: 10,
-        duration: { min: 2, max: 6 },
-        energyCost: 20,
-        conditions: { nearbyPredators: 1, energy: { min: 0.1, max: 1.0 } },
-        transitions: [],
-      },
-      {
-        state: BehaviorState.SLEEPING,
-        priority: 9,
-        duration: { min: 6, max: 12 },
-        energyCost: -15,
+        priority: 10, // Highest priority
+        duration: { min: 2, max: 8 },
+        energyCost: 15,
         conditions: {
-          energy: { min: 0, max: 0.15 },
-          timeOfDay: { start: 0, end: 6 },
+          nearbyPredators: 1, // At least 1 predator nearby
         },
-        transitions: [],
       },
       {
-        state: BehaviorState.INJURED,
+        state: BehaviorState.RESTING,
         priority: 8,
-        duration: { min: 15, max: 45 },
-        energyCost: 8,
-        conditions: { health: { min: 0, max: 0.4 } },
-        transitions: [],
+        duration: { min: 3, max: 10 },
+        energyCost: -10, // Regain energy
+        conditions: {
+          energy: { min: 0, max: 0.3 }, // Low energy
+        },
       },
-
-      // Hunting states
+      {
+        state: BehaviorState.EATING,
+        priority: 8, // Higher priority than hunting
+        duration: { min: 0.5, max: 8 }, // Reduced min duration from 2s to 0.5s
+        energyCost: 2,
+        conditions: {
+          hunger: { min: 0.3, max: 1.0 }, // Start eating at 30% hunger (was 50%)
+          nearbyPrey: 1, // Dead prey nearby
+          isCloseToPrey: true, // Must be close to dead prey
+        },
+      },
       {
         state: BehaviorState.HUNTING,
         priority: 7,
-        duration: { min: 8, max: 20 },
+        duration: { min: 1, max: 15 }, // Reduced min duration from 3s to 1s
         energyCost: 12,
         conditions: {
-          hunger: { min: 0.5, max: 1.0 }, // Allow up to 100% hunger
-          nearbyFood: 1, // Require prey to be present
-          energy: { min: 0.4, max: 1.0 },
-          health: { min: 0.6, max: 1.0 },
+          hunger: { min: 0.4, max: 1.0 }, // Start hunting at 40% hunger (was 50%)
+          nearbyPrey: 1, // Live prey nearby (not dead prey)
+          isCloseToPrey: false, // Only hunt when NOT close to prey (prevents flickering)
         },
-        transitions: [],
       },
-
-      // Territory states
-      {
-        state: BehaviorState.DEFENDING_TERRITORY,
-        priority: 4, // Lowered from 6
-        duration: { min: 5, max: 15 },
-        energyCost: 10,
-        conditions: {
-          energy: { min: 0.5, max: 1.0 },
-          health: { min: 0.8, max: 1.0 },
-        },
-        transitions: [],
-      },
-      {
-        state: BehaviorState.PATROLLING_TERRITORY,
-        priority: 3, // Lowered from 5
-        duration: { min: 6, max: 12 },
-        energyCost: 8,
-        conditions: {
-          energy: { min: 0.3, max: 1.0 },
-          health: { min: 0.7, max: 1.0 },
-        },
-        transitions: [],
-      },
-
-      // Social states
-      {
-        state: BehaviorState.SOCIALIZING,
-        priority: 4,
-        duration: { min: 3, max: 8 },
-        energyCost: 4,
-        conditions: {
-          nearbyAllies: 1,
-          health: { min: 0.8, max: 1.0 },
-          energy: { min: 0.5, max: 1.0 },
-        },
-        transitions: [],
-      },
-
-      // Rest states
-      {
-        state: BehaviorState.RESTING,
-        priority: 3,
-        duration: { min: 4, max: 10 },
-        energyCost: -3,
-        conditions: { energy: { min: 0, max: 0.6 } },
-        transitions: [],
-      },
-
-      // Movement states
       {
         state: BehaviorState.WANDERING,
-        priority: 2,
-        duration: { min: 4, max: 10 },
-        energyCost: 6,
-        conditions: { energy: { min: 0.2, max: 1.0 } },
-        transitions: [],
-      },
-      {
-        state: BehaviorState.EXPLORING,
-        priority: 1,
-        duration: { min: 3, max: 8 },
-        energyCost: 7,
-        conditions: { energy: { min: 0.6, max: 1.0 } },
-        transitions: [],
+        priority: 1, // Lowest priority
+        duration: { min: 2, max: 10 },
+        energyCost: 4,
+        conditions: {
+          energy: { min: 0.2, max: 1.0 }, // Not too tired
+        },
       },
     ];
   }
 
-  // Generate random personality traits
   static generatePersonality(): PersonalityTraits {
     return {
       boldness: Math.random(),
       sociability: Math.random(),
-      curiosity: Math.random(),
       aggression: Math.random(),
-      intelligence: Math.random(),
       energy: Math.random(),
-      territoriality: Math.random(),
-      loyalty: Math.random(),
     };
   }
 
-  // Generate initial memory
   static generateMemory(): CreatureMemory {
     return {
       lastKnownFoodPositions: [],
       lastKnownPredatorPositions: [],
       lastKnownPreyPositions: [],
-      successfulHuntingSpots: [],
-      dangerousAreas: [],
-      knownIndividuals: [],
-      packMembers: [],
-      territoryBoundaries: [],
-      territoryMarkers: [],
-      dailyRoutines: [],
-      seasonalPatterns: [],
-      learnedBehaviors: [],
       lastUpdateTime: Date.now(),
     };
   }
